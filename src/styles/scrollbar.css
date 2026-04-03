@@ -2,29 +2,31 @@
 
 /* WebKit Browsers (Chrome, Safari, Edge) */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(139, 92, 246, 0.1);
+  background: rgba(139, 92, 246, 0.15);
   border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #a855f7, #ec4899);
+  background: linear-gradient(180deg, #8b5cf6, #a855f7, #c084fc);
   border-radius: 10px;
-  border: 2px solid rgba(139, 92, 246, 0.1);
+  border: 2px solid rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #c084fc, #f472b6);
+  background: linear-gradient(180deg, #a855f7, #c084fc, #e879f9);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.8);
 }
 
 /* Firefox */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #a855f7 rgba(139, 92, 246, 0.1);
+  scrollbar-color: #8b5cf6 rgba(139, 92, 246, 0.15);
 }
 
 /* Smooth scrolling */
@@ -34,23 +36,52 @@
 
 /* Chat Scrollbar - Thinner for chat */
 .chat-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .chat-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.5);
+  background: rgba(139, 92, 246, 0.1);
   border-radius: 10px;
 }
 
+.chat-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8b5cf6, #a855f7);
+  border-radius: 10px;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
 .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.8);
+  background: linear-gradient(180deg, #a855f7, #c084fc);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.7);
 }
 
 .chat-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(168, 85, 247, 0.5) transparent;
+  scrollbar-color: #8b5cf6 rgba(139, 92, 246, 0.1);
+}
+
+/* Achievements Scrollbar - Special styling */
+.achievements-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.achievements-scrollbar::-webkit-scrollbar-track {
+  background: rgba(251, 191, 36, 0.1);
+  border-radius: 10px;
+}
+
+.achievements-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #fbbf24, #f59e0b);
+  border-radius: 10px;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+
+.achievements-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #fcd34d, #fbbf24);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.8);
+}
+
+.achievements-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #fbbf24 rgba(251, 191, 36, 0.1);
 }

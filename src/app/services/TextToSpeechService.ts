@@ -197,6 +197,10 @@ class TextToSpeechService {
         if (event.error === 'interrupted' || event.error === 'canceled') {
           console.log('ℹ️ Speech interrupted (normal when starting new speech)');
           resolve();
+        } else if (event.error === 'not-allowed') {
+          // Browser blocked autoplay - this is normal, just log silently
+          console.log('ℹ️ Speech not allowed (requires user interaction first)');
+          resolve();
         } else {
           // Only log actual errors
           console.error('❌ Speech error:', event.error, event);

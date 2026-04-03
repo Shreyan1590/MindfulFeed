@@ -41,6 +41,8 @@ interface Badge {
   icon: string;
   description: string;
   earned: boolean;
+  progress: number;
+  target: number;
 }
 
 interface QuizQuestion {
@@ -66,12 +68,12 @@ const languages: Language[] = [
 ];
 
 const initialBadges: Badge[] = [
-  { id: 'curious-cat', name: 'Curious Cat', icon: '🐱', description: 'Asked a great question!', earned: false },
-  { id: 'quick-learner', name: 'Quick Learner', icon: '⚡', description: 'Answered 3 questions correctly', earned: false },
-  { id: 'knowledge-star', name: 'Knowledge Star', icon: '⭐', description: 'Read full article', earned: false },
-  { id: 'language-lover', name: 'Language Lover', icon: '🌍', description: 'Learned in multiple languages', earned: false },
-  { id: 'perfect-score', name: 'Perfect Score', icon: '🏆', description: 'Got all quiz questions right!', earned: false },
-  { id: 'ai-master', name: 'AI Master', icon: '🤖', description: 'Used AI features 10 times', earned: false },
+  { id: 'curious-cat', name: 'Curious Cat', icon: '🐱', description: 'Asked a great question!', earned: false, progress: 0, target: 1 },
+  { id: 'quick-learner', name: 'Quick Learner', icon: '⚡', description: 'Answered 3 questions correctly', earned: false, progress: 0, target: 3 },
+  { id: 'knowledge-star', name: 'Knowledge Star', icon: '⭐', description: 'Read full article', earned: false, progress: 0, target: 1 },
+  { id: 'language-lover', name: 'Language Lover', icon: '🌍', description: 'Learned in multiple languages', earned: false, progress: 0, target: 2 },
+  { id: 'perfect-score', name: 'Perfect Score', icon: '🏆', description: 'Got all quiz questions right!', earned: false, progress: 0, target: 3 },
+  { id: 'ai-master', name: 'AI Master', icon: '🤖', description: 'Used AI features 10 times', earned: false, progress: 0, target: 10 },
 ];
 
 export function EnhancedAICharacter({ article }: { article: ArticleData }) {
@@ -98,8 +100,10 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
   const [isListening, setIsListening] = useState(false);
   const [showParticles, setShowParticles] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [selectedBadgeForDetails, setSelectedBadgeForDetails] = useState<Badge | null>(null);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const learnContentRef = useRef<HTMLDivElement>(null);
   const controls = useAnimation();
 
   // Load AI analysis when component mounts
@@ -114,14 +118,6 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Speak content when it appears
-  useEffect(() => {
-    if (aiAnalysis && soundEnabled && selectedLanguage) {
-      // Auto-speak Buddy's explanation when it loads
-      speakText(aiAnalysis.explanation);
-    }
-  }, [aiAnalysis?.explanation]);
-
   // Stop speaking when sound is disabled
   useEffect(() => {
     if (!soundEnabled && isSpeaking) {
@@ -129,6 +125,13 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
       setIsSpeaking(false);
     }
   }, [soundEnabled]);
+
+  // Scroll to top when badges panel is opened
+  useEffect(() => {
+    if (showBadges && learnContentRef.current) {
+      learnContentRef.current.scrollTop = 0;
+    }
+  }, [showBadges]);
 
   // Helper: Speak text in current language
   const speakText = async (text: string, excited: boolean = false) => {
@@ -412,12 +415,13 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            className="mb-4 w-80 bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-pink-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl border-4 border-purple-500/50 overflow-hidden"
+            className="mb-4 w-80 bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-pink-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl border-4 border-purple-500/50 overflow-hidden flex flex-col"
             initial={{ opacity: 0, scale: 0.8, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             style={{
               boxShadow: '0 0 60px rgba(168, 85, 247, 0.6), 0 0 120px rgba(236, 72, 153, 0.4)',
+              maxHeight: '80vh',
             }}
           >
             {/* Animated Border Effect */}
@@ -433,9 +437,9 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
               transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
             />
             
-            <div className="relative z-10 bg-gradient-to-br from-purple-900/98 via-blue-900/98 to-pink-900/98 rounded-3xl m-[3px]">
+            <div className="relative z-10 bg-gradient-to-br from-purple-900/98 via-blue-900/98 to-pink-900/98 rounded-3xl m-[3px] flex flex-col h-full overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 p-4 relative overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 p-4 relative overflow-hidden shrink-0">
                 {/* Animated Background Pattern */}
                 <motion.div
                   className="absolute inset-0 opacity-20"
@@ -539,14 +543,19 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                     
                     <motion.button
                       onClick={() => setShowBadges(!showBadges)}
-                      className="bg-white/10 backdrop-blur-md rounded-full p-2 hover:bg-white/20 transition-all border border-white/30 relative"
+                      className={`backdrop-blur-md rounded-full p-2 hover:bg-white/20 transition-all border relative ${
+                        showBadges 
+                          ? 'bg-yellow-500/30 border-yellow-400' 
+                          : 'bg-white/10 border-white/30'
+                      }`}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
+                      title={showBadges ? 'Hide Achievements' : 'Show Achievements'}
                     >
-                      <Trophy className="w-5 h-5 text-yellow-300" />
+                      <Trophy className={`w-5 h-5 ${showBadges ? 'text-yellow-400' : 'text-yellow-300'}`} />
                       {badges.filter(b => b.earned).length > 0 && (
                         <motion.div
-                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                          className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg"
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                         >
@@ -571,71 +580,164 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                 </div>
               </div>
 
-              {/* Enhanced Badges Panel */}
+              {/* Enhanced Badges Panel - Fully Expandable Dropdown */}
               <AnimatePresence>
                 {showBadges && (
                   <motion.div
-                    className="bg-gradient-to-br from-purple-800/50 to-pink-800/50 p-4 border-b border-purple-500/30"
+                    className="bg-gradient-to-br from-purple-800/90 to-pink-800/90 border-b border-purple-500/30"
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
                   >
-                    <h4 className="font-bold text-white mb-3 flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-yellow-400" />
-                      Your Achievements
-                      <motion.span
-                        className="ml-auto text-sm text-yellow-300"
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ duration: 1, repeat: Infinity }}
-                      >
-                        {badges.filter(b => b.earned).length}/{badges.length}
-                      </motion.span>
-                    </h4>
-                    <div className="grid grid-cols-3 gap-2">
-                      {badges.map((badge, index) => (
-                        <motion.div
-                          key={badge.id}
-                          className={`p-3 rounded-xl text-center relative overflow-hidden ${
-                            badge.earned 
-                              ? 'bg-gradient-to-br from-yellow-400 to-orange-500' 
-                              : 'bg-gray-700/50'
-                          }`}
-                          initial={{ opacity: 0, scale: 0 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: index * 0.1 }}
-                          whileHover={{ scale: 1.05, y: -5 }}
-                          title={badge.description}
+                    <div className="p-4">
+                      <h4 className="font-bold text-white mb-4 flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-yellow-400" />
+                        Your Achievements
+                        <motion.span
+                          className="ml-auto text-sm text-yellow-300 bg-yellow-500/20 px-3 py-1 rounded-full"
+                          animate={{ scale: [1, 1.05, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
                         >
-                          {badge.earned && (
+                          {badges.filter(b => b.earned).length}/{badges.length}
+                        </motion.span>
+                      </h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        {badges.map((badge, index) => (
+                          <motion.div
+                            key={badge.id}
+                            onClick={() => setSelectedBadgeForDetails(badge)}
+                            className={`p-3 rounded-xl text-center relative overflow-hidden cursor-pointer ${
+                              badge.earned 
+                                ? 'bg-gradient-to-br from-yellow-400 to-orange-500' 
+                                : 'bg-gray-700/50'
+                            }`}
+                            initial={{ opacity: 0, scale: 0, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0, y: 20 }}
+                            transition={{ delay: index * 0.05, duration: 0.3 }}
+                            whileHover={{ scale: 1.05, y: -3 }}
+                            whileTap={{ scale: 0.95 }}
+                            title={badge.description}
+                          >
+                            {badge.earned && (
+                              <>
+                                <motion.div
+                                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                                  animate={{ x: ['-100%', '200%'] }}
+                                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                                />
+                                <motion.div
+                                  className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center"
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: index * 0.05 + 0.2 }}
+                                >
+                                  <span className="text-xs">✓</span>
+                                </motion.div>
+                              </>
+                            )}
+                            <div className="relative">
+                              <motion.div
+                                className="text-3xl mb-1"
+                                animate={badge.earned ? { rotate: [0, 10, -10, 0] } : {}}
+                                transition={{ duration: 0.5, repeat: badge.earned ? Infinity : 0, repeatDelay: 5 }}
+                                style={{ filter: badge.earned ? 'none' : 'grayscale(100%) opacity(0.5)' }}
+                              >
+                                {badge.icon}
+                              </motion.div>
+                              <p className={`text-xs font-semibold ${badge.earned ? 'text-black' : 'text-gray-400'}`}>
+                                {badge.name}
+                              </p>
+                              {!badge.earned && (
+                                <div className="mt-2 w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                                  <motion.div
+                                    className="bg-purple-400 h-full"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(badge.progress / badge.target) * 100}%` }}
+                                    transition={{ duration: 1, delay: 0.5 }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+
+                      <AnimatePresence>
+                        {selectedBadgeForDetails && (
+                          <motion.div
+                            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedBadgeForDetails(null)}
+                          >
                             <motion.div
-                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                              animate={{ x: ['-100%', '200%'] }}
-                              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                            />
-                          )}
-                          <div className="relative">
-                            <motion.div
-                              className="text-3xl mb-1"
-                              animate={badge.earned ? { rotate: [0, 10, -10, 0] } : {}}
-                              transition={{ duration: 0.5, repeat: badge.earned ? Infinity : 0, repeatDelay: 5 }}
-                              style={{ filter: badge.earned ? 'none' : 'grayscale(100%) opacity(0.5)' }}
+                              className="bg-gradient-to-br from-purple-900 to-indigo-900 p-6 rounded-3xl shadow-2xl border border-purple-500/50 w-full max-w-sm relative"
+                              initial={{ scale: 0.8, y: 20 }}
+                              animate={{ scale: 1, y: 0 }}
+                              exit={{ scale: 0.8, y: 20 }}
+                              onClick={e => e.stopPropagation()}
                             >
-                              {badge.icon}
+                              <button
+                                onClick={() => setSelectedBadgeForDetails(null)}
+                                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                              >
+                                <X className="w-5 h-5 text-white" />
+                              </button>
+                              
+                              <div className="text-center">
+                                <motion.div
+                                  className="text-6xl mb-4 inline-block"
+                                  animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+                                  transition={{ duration: 2, repeat: Infinity }}
+                                  style={{ filter: selectedBadgeForDetails.earned ? 'none' : 'grayscale(100%) opacity(0.8)' }}
+                                >
+                                  {selectedBadgeForDetails.icon}
+                                </motion.div>
+                                <h3 className="text-2xl font-bold text-white mb-2">{selectedBadgeForDetails.name}</h3>
+                                <p className="text-purple-200 mb-6">{selectedBadgeForDetails.description}</p>
+                                
+                                <div className="bg-black/30 rounded-2xl p-4">
+                                  <div className="flex justify-between text-sm font-semibold mb-2">
+                                    <span className="text-white">Progress</span>
+                                    <span className="text-yellow-400">
+                                      {selectedBadgeForDetails.progress} / {selectedBadgeForDetails.target}
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                                    <motion.div
+                                      className={`h-full ${selectedBadgeForDetails.earned ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 'bg-gradient-to-r from-purple-400 to-pink-500'}`}
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${(selectedBadgeForDetails.progress / selectedBadgeForDetails.target) * 100}%` }}
+                                      transition={{ duration: 1, ease: 'easeOut' }}
+                                    />
+                                  </div>
+                                  {selectedBadgeForDetails.earned ? (
+                                    <p className="mt-3 text-sm text-green-400 font-bold flex items-center justify-center gap-1">
+                                      <Award className="w-4 h-4" /> Badge Earned!
+                                    </p>
+                                  ) : (
+                                    <p className="mt-3 text-sm text-purple-300">
+                                      Keep going to unlock this badge!
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             </motion.div>
-                            <p className={`text-xs font-semibold ${badge.earned ? 'text-black' : 'text-gray-400'}`}>
-                              {badge.name}
-                            </p>
-                          </div>
-                        </motion.div>
-                      ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
               {/* Enhanced Content Tabs */}
-              <div className="bg-black/20">
-                <div className="flex border-b border-purple-500/30">
+              {!showBadges && (
+                <div className="bg-black/20 flex flex-col flex-1 min-h-0">
+                  <div className="flex border-b border-purple-500/30 shrink-0">
                   <motion.button
                     onClick={() => setShowChat(false)}
                     className={`flex-1 py-3 font-semibold transition-all relative ${
@@ -678,7 +780,7 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
 
                 {/* Learn Content */}
                 {!showChat && (
-                  <div className="p-4 max-h-96 overflow-y-auto custom-scrollbar">
+                  <div ref={learnContentRef} className="pt-2 px-4 pb-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                     {/* Language Selector */}
                     <motion.div 
                       className="mb-4"
@@ -967,8 +1069,8 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
 
                 {/* Enhanced Chat Content */}
                 {showChat && (
-                  <div className="flex flex-col h-96">
-                    <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-3">
+                  <div className="flex flex-col flex-1 min-h-0">
+                    <div className="flex-1 pt-2 px-4 pb-4 overflow-y-auto chat-scrollbar space-y-3 min-h-0">
                       {chatMessages.length === 0 ? (
                         <motion.div
                           className="text-center py-8"
@@ -1051,7 +1153,7 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                     </div>
 
                     {/* Enhanced Chat Input */}
-                    <div className="p-3 bg-purple-900/50 border-t border-purple-500/30">
+                    <div className="p-3 bg-purple-900/50 border-t border-purple-500/30 shrink-0">
                       <div className="flex gap-2">
                         <motion.button
                           onClick={handleVoiceInput}
