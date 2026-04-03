@@ -1,0 +1,36 @@
+# Cloudflare Workers Configuration for MindfulFeed
+# Account ID: 340badfe3c0958f9beb19c3cec27fe1f
+# Database ID: 9b0453b7-2cfe-4280-86da-8fa9c72eac34
+
+name = "mindfulfeed-worker"
+main = "cloudflare-worker.js"
+compatibility_date = "2024-01-01"
+account_id = "340badfe3c0958f9beb19c3cec27fe1f"
+
+# Workers configuration
+workers_dev = true
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "MINDFULFEED_DB"
+database_name = "mindfulfeed"
+database_id = "9b0453b7-2cfe-4280-86da-8fa9c72eac34"
+
+# R2 Bucket Binding
+[[r2_buckets]]
+binding = "MINDFULFEED_ASSETS"
+bucket_name = "mindfulfeed-assets"
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "production"
+
+# Routes (configure after deploying)
+# routes = [
+#   { pattern = "api.mindfulfeed.app/*", zone_name = "mindfulfeed.app" }
+# ]
+
+# Custom domains (optional)
+# routes = [
+#   { pattern = "upload.mindfulfeed.app/*", custom_domain = true }
+# ]

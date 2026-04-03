@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router';
-import { Brain, Mail, Lock, Eye, EyeOff, Sparkles, Rocket, Zap, Star } from 'lucide-react';
+import { Brain, Mail, Lock, Eye, EyeOff, Sparkles, Rocket, Zap, Star, User } from 'lucide-react';
 
 export function CosmicAuth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [stars, setStars] = useState<{ id: number; x: number; y: number; size: number; delay: number }[]>([]);
@@ -45,9 +46,9 @@ export function CosmicAuth() {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#0a0a1f]">
+    <div className="mobile-fullscreen mobile-no-horizontal-scroll mobile-custom-scroll bg-[#0a0a1f]">
       {/* Animated Background - Space */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 pointer-events-none">
         {/* Gradient Background */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-[#1a1a3e] via-[#0f0f2e] to-[#0a0a1f]"
@@ -147,16 +148,16 @@ export function CosmicAuth() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 h-full flex items-center justify-center p-6">
+      <div className="relative z-10 mobile-centered-content mobile-text-compact mobile-compact">
         <motion.div
-          className="w-full max-w-md"
+          className="w-full max-w-md mobile-compact-spacing"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
           {/* Logo */}
           <motion.div
-            className="flex flex-col items-center mb-12"
+            className="flex flex-col items-center mb-8 mobile-compact-spacing"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
@@ -319,6 +320,27 @@ export function CosmicAuth() {
                   </button>
                 </div>
               </div>
+
+              {/* Full Name */}
+              {!isLogin && (
+                <div>
+                  <label className="block text-white/80 text-sm font-semibold mb-2">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full bg-white/5 border border-white/20 rounded-2xl py-3 px-12 text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                      placeholder="John Doe"
+                      required
+                    />
+                    <Star className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-yellow-400 animate-pulse" />
+                  </div>
+                </div>
+              )}
 
               {/* Forgot Password */}
               {isLogin && (
