@@ -15,7 +15,7 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react';
-import { AICharacterExplainer } from './AICharacterExplainer';
+import { EnhancedAICharacter } from './EnhancedAICharacter';
 
 interface Post {
   id: number;
@@ -503,8 +503,14 @@ export function PostDetailScreen() {
         </motion.button>
       )}
 
-      {/* AI Character Explainer - Kid-Friendly Learning Assistant */}
-      <AICharacterExplainer articleTitle={post.title} />
+      {/* AI Character Explainer - Enhanced with Real AI Analysis */}
+      <EnhancedAICharacter 
+        article={{
+          title: post.title,
+          content: post.content,
+          category: post.category,
+        }}
+      />
     </div>
   );
 }
