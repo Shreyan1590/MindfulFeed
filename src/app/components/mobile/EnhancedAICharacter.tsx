@@ -58,6 +58,7 @@ interface ArticleData {
   title: string;
   content: string;
   category: string;
+  id?: string;
 }
 
 const languages: Language[] = [
@@ -302,7 +303,7 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
     try {
       // Use AI RAG service to generate bounded response based purely on article content
       const response = await ragService.askQuestion(
-        article.content,
+        article.id || '',
         userMessage
       );
       

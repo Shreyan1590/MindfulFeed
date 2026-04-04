@@ -6,7 +6,7 @@
  * similarity search, and bounded QA LLM synthesis.
  */
 
-const API_BASE_URL = 'https://mindfulfeed.info-skillxpress.workers.dev';
+const API_BASE_URL = 'https://mindfulfeed-worker.info-skillxpress.workers.dev';
 
 export interface RAGResponse {
   answer: string;
@@ -19,7 +19,7 @@ class RAGService {
    * Queries the AI regarding the current article.
    * Throws strictly constrained errors if unable to reach RAG endpoint.
    */
-  async askQuestion(articleText: string, question: string): Promise<RAGResponse> {
+  async askQuestion(articleId: string, question: string): Promise<RAGResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/rag/chat`, {
         method: 'POST',
@@ -27,7 +27,7 @@ class RAGService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          articleText,
+          articleId,
           question
         })
       });

@@ -237,26 +237,72 @@ async function handleD1Query(request, env, corsHeaders) {
  * Handle RAG Chat Question
  */
 async function handleRAGChat(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
   try {
-    const { articleText, question } = await request.json();
-
-    if (!articleText || !question) {
-      return new Response('Missing articleText or question', { status: 400, headers: corsHeaders });
+    console.log('--- [RAG Chat] Incoming Request ---');
+    
+    // 1. SAFE JSON PARSING
+    let payload;
+    try {
+      payload = await request.json();
+    } catch (e) {
+      console.error('[RAG Chat] Invalid JSON body', e);
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400, headers: jsonHeaders });
     }
 
-    // 1. Chunk the article
+    const { articleId, question } = payload;
+    console.log(`[RAG Chat] Request Body - Article ID: ${articleId}, Question: ${question}`);
+
+    // 2. VALIDATE REQUEST BODY
+    if (!articleId || !question) {
+      console.error('[RAG Chat] Missing articleId or question');
+      return new Response(JSON.stringify({ error: "Missing articleId or question" }), { status: 400, headers: jsonHeaders });
+    }
+
+    // 3. FETCH ARTICLE FROM D1
+    const db = env.MINDFULFEED_DB;
+    console.log(`[RAG Chat] Fetching article ${articleId} from database`);
+    
+    let articleRow;
+    try {
+      articleRow = await db.prepare('SELECT content FROM articles WHERE id = ?').bind(articleId).first();
+    } catch (dbError) {
+      console.error('[RAG Chat] Database Error:', dbError.message, dbError.stack);
+      return new Response(JSON.stringify({ error: "Article not found or empty", details: dbError.message }), { status: 400, headers: jsonHeaders });
+    }
+
+    if (!articleRow || !articleRow.content || articleRow.content.trim() === '') {
+      console.error(`[RAG Chat] Article ${articleId} not found or empty`);
+      return new Response(JSON.stringify({ error: "Article not found or empty" }), { status: 400, headers: jsonHeaders });
+    }
+
+    const articleText = articleRow.content;
+    console.log(`[RAG Chat] Article fetched successfully, Content Length: ${articleText.length}`);
+
+    // 4. CHUNK ARTICLE
     const chunks = chunkText(articleText, 300, 50);
+    console.log(`[RAG Chat] Article chunked into ${chunks.length} pieces`);
 
-    // 2. Generate embeddings for chunks
-    // Uses Cloudflare native embedding model
-    const chunkEmbeddingsRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: chunks });
-    const chunkEmbeddings = chunkEmbeddingsRes.data;
+    // 5. GET EMBEDDINGS (Wrapped safely)
+    let chunkEmbeddings;
+    let queryEmbedding;
+    
+    try {
+      if (!env.AI) {
+        throw new Error("env.AI binding missing from worker");
+      }
+      
+      const chunkEmbeddingsRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: chunks });
+      chunkEmbeddings = chunkEmbeddingsRes.data;
 
-    // 3. Generate embedding for query
-    const queryEmbeddingRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: [question] });
-    const queryEmbedding = queryEmbeddingRes.data[0];
+      const queryEmbeddingRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: [question] });
+      queryEmbedding = queryEmbeddingRes.data[0];
+    } catch (aiError) {
+      console.error('[RAG Chat] AI Embedding Error:', aiError.message, aiError.stack);
+      return new Response(JSON.stringify({ answer: "This information is not available in the article." }), { status: 200, headers: jsonHeaders });
+    }
 
-    // 4. Similarity Search (Cosine)
+    // 6. SIMILARITY SEARCH
     const scoredChunks = chunks.map((chunk, index) => {
       return {
         chunk,
@@ -264,44 +310,27 @@ async function handleRAGChat(request, env, corsHeaders) {
       };
     });
 
-    // Sort by relevance (highest score first)
     scoredChunks.sort((a, b) => b.score - a.score);
-    
-    // 5. Select top 3 chunks
     const topChunks = scoredChunks.slice(0, 3);
     const highestScore = topChunks[0]?.score || 0;
+    
+    console.log(`[RAG Chat] Highest embedding similarity score: ${highestScore}`);
 
-    // Apply strict threshold to prevent hallucination
     if (highestScore < 0.5) {
+      console.log(`[RAG Chat] Similarity threshold not met.`);
       return new Response(JSON.stringify({ 
-        answer: "This information is not available in the article.",
-        confidence: highestScore,
-        chunksUsed: 0
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+        answer: "This information is not available in the article."
+      }), { status: 200, headers: jsonHeaders });
     }
 
     const contextHTML = topChunks.map(c => c.chunk).join('\n...\n');
 
-    // 6. Strict RAG LLM Prompt
+    // 7. STRICT SYSTEM PROMPT
     const promptParams = {
       messages: [
         {
           role: 'system',
-          content: `You are an AI assistant that ONLY answers based on the provided article context.
-
-STRICT RULES:
-* Answer ONLY using the given context
-* DO NOT use external knowledge
-* DO NOT guess or hallucinate
-* If answer is not found in context, say EXACTLY: "This information is not available in the article."
-* Be clear and concise
-* Use simple language
-
-CONTEXT:
-${contextHTML}`
+          content: `You are an AI assistant that ONLY answers based on the given article context.\nDo NOT use external knowledge.\nIf answer is not found, say:\n'This information is not available in the article.'\n\nCONTEXT:\n${contextHTML}`
         },
         {
           role: 'user',
@@ -310,29 +339,23 @@ ${contextHTML}`
       ]
     };
 
-    // 7. Generate Response using standard Llama 3
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', promptParams);
+    // 8. FINAL LLM CALL
+    let response;
+    try {
+      response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', promptParams);
+      console.log(`[RAG Chat] LLM responded successfully.`);
+    } catch (llmError) {
+      console.error('[RAG Chat] LLM Chat Error:', llmError.message, llmError.stack);
+      return new Response(JSON.stringify({ answer: "This information is not available in the article." }), { status: 200, headers: jsonHeaders });
+    }
 
-    return new Response(
-      JSON.stringify({
-        answer: response.response,
-        confidence: highestScore,
-        chunksUsed: topChunks.length
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-  } catch (error) {
-    console.error('RAG Error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    // 9. SUCCESS RESPONSE
+    return new Response(JSON.stringify({ answer: response.response }), { status: 200, headers: jsonHeaders });
+
+  } catch (globalError) {
+    // 10. GLOBAL CATCH-ALL SAFEGUARD (NEVER RETURN 500)
+    console.error('[RAG Chat] FATAL GLOBAL ERROR:', globalError.message, globalError.stack);
+    return new Response(JSON.stringify({ answer: "This information is not available in the article." }), { status: 200, headers: jsonHeaders });
   }
 }
 
