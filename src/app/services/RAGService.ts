@@ -1,25 +1,24 @@
 /**
  * Mobile RAG Service (Retrieval-Augmented Generation)
  * 
- * Proxies the full article content and user query securely to the 
- * Cloudflare Native AI backend for chunking, embedding generation, 
- * similarity search, and bounded QA LLM synthesis.
+ * Sends postId and user query to the Cloudflare Worker API.
+ * The worker fetches article content from D1 and runs the RAG pipeline.
  */
 
 const API_BASE_URL = 'https://mindfulfeed-worker.info-skillxpress.workers.dev';
 
 export interface RAGResponse {
   answer: string;
-  confidence: number;
-  chunksUsed: number;
 }
 
 class RAGService {
   /**
    * Queries the AI regarding the current article.
-   * Throws strictly constrained errors if unable to reach RAG endpoint.
+   * The worker fetches the article content from D1 using postId.
    */
-  async askQuestion(articleId: string, question: string): Promise<RAGResponse> {
+  async askQuestion(postId: string, question: string, history: Array<{role: 'user' | 'assistant', content: string}> = []): Promise<RAGResponse> {
+    console.log('[RAGService] Sending request:', { postId, question, historyLength: history.length });
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/rag/chat`, {
         method: 'POST',
@@ -27,19 +26,23 @@ class RAGService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          articleId,
-          question
+          postId,
+          question,
+          history
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to query MindfulFeed RAG Engine');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[RAGService] Server error:', response.status, errorData);
+        throw new Error(errorData.error || `Server returned ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('[RAGService] Response received:', { answer: data.answer?.substring(0, 50) });
       return data;
     } catch (error) {
-      console.error('RAG Service Error:', error);
+      console.error('[RAGService] Error:', error);
       throw error;
     }
   }

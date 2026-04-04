@@ -1,6 +1,27 @@
 -- MindfulFeed Database Schema for Cloudflare D1
 -- Database ID: 9b0453b7-2cfe-4280-86da-8fa9c72eac34
 
+-- Posts / Articles Table (unified feed + article content)
+CREATE TABLE IF NOT EXISTS posts (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  caption TEXT,
+  content TEXT NOT NULL,
+  category TEXT,
+  image_url TEXT,
+  xp INTEGER DEFAULT 10,
+  attention_score REAL DEFAULT 0.85,
+  content_quality TEXT DEFAULT 'productive',
+  read_time TEXT DEFAULT '5 min read',
+  views INTEGER DEFAULT 0,
+  comments INTEGER DEFAULT 0,
+  author_name TEXT DEFAULT 'MindfulFeed Team',
+  author_avatar TEXT,
+  author_level INTEGER DEFAULT 1,
+  tags TEXT DEFAULT '[]',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 -- User Progress Table
 CREATE TABLE IF NOT EXISTS user_progress (
   user_id TEXT PRIMARY KEY,
@@ -8,16 +29,6 @@ CREATE TABLE IF NOT EXISTS user_progress (
   badges TEXT DEFAULT '[]',
   quiz_progress TEXT DEFAULT '{}',
   last_active TEXT,
-  created_at TEXT
-);
-
--- Articles Table
-CREATE TABLE IF NOT EXISTS articles (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  category TEXT,
-  image_url TEXT,
   created_at TEXT
 );
 
@@ -34,7 +45,7 @@ CREATE TABLE IF NOT EXISTS activity_log (
 CREATE TABLE IF NOT EXISTS chat_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,
-  article_id TEXT,
+  post_id TEXT,
   message TEXT,
   role TEXT CHECK(role IN ('user', 'bot')),
   timestamp TEXT
@@ -50,34 +61,21 @@ CREATE TABLE IF NOT EXISTS user_settings (
   updated_at TEXT
 );
 
--- Create indexes for better performance
+-- Precomputed Embeddings Table
+CREATE TABLE IF NOT EXISTS post_embeddings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id TEXT NOT NULL,
+  chunk_text TEXT NOT NULL,
+  embedding_vector TEXT NOT NULL, -- JSON string of the float array
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log(timestamp);
-CREATE INDEX IF NOT EXISTS idx_chat_user_article ON chat_history(user_id, article_id);
+CREATE INDEX IF NOT EXISTS idx_chat_user_post ON chat_history(user_id, post_id);
 CREATE INDEX IF NOT EXISTS idx_chat_timestamp ON chat_history(timestamp);
-CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
-CREATE INDEX IF NOT EXISTS idx_articles_created ON articles(created_at);
-
--- Insert sample data
-INSERT OR IGNORE INTO articles (id, title, content, category, created_at) VALUES
-(
-  'article-1',
-  'What is Artificial Intelligence?',
-  'Artificial Intelligence (AI) is like giving computers a brain! Just like how you learn from your experiences, AI systems can learn from data...',
-  'Technology',
-  '2024-01-01T00:00:00Z'
-),
-(
-  'article-2',
-  'How Do Rainbows Form?',
-  'Rainbows are one of nature''s most beautiful displays! They happen when sunlight and raindrops work together...',
-  'Science',
-  '2024-01-02T00:00:00Z'
-),
-(
-  'article-3',
-  'The Magic of Photosynthesis',
-  'Plants are like tiny factories that make their own food! This amazing process is called photosynthesis...',
-  'Nature',
-  '2024-01-03T00:00:00Z'
-);
+CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category);
+CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at);
+CREATE INDEX IF NOT EXISTS idx_embeddings_post ON post_embeddings(post_id);

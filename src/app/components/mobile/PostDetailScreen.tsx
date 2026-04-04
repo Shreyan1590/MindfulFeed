@@ -21,189 +21,13 @@ import { EnhancedAICharacter } from './EnhancedAICharacter';
 import { aiTranslationService, ArticleAnalysis } from '../../services/AITranslationService';
 import { ttsService } from '../../services/TextToSpeechService';
 import { AudioControlsPanel } from './AudioControlsPanel';
-
-interface Post {
-  id: number;
-  title: string;
-  caption: string;
-  category: string;
-  image: string;
-  attentionScore: number;
-  xp: number;
-  readTime: string;
-  views: number;
-  comments: number;
-  author: {
-    name: string;
-    avatar: string;
-    level: number;
-  };
-  content: string;
-  tags: string[];
-  relatedPosts: number[];
-}
-
-const mockPosts: Post[] = [
-  {
-    id: 1,
-    title: 'The Future of AI in Daily Life',
-    caption: 'How artificial intelligence is transforming the way we live, work, and connect with others.',
-    category: 'Technology',
-    image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800',
-    attentionScore: 0.92,
-    xp: 150,
-    readTime: '8 min read',
-    views: 12450,
-    comments: 89,
-    author: {
-      name: 'Alex Thompson',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-      level: 24,
-    },
-    content: `
-# Understanding AI Integration
-
-Artificial Intelligence has become an integral part of our daily routines, often in ways we don't even realize. From personalized recommendations on streaming platforms to smart home devices that learn our preferences, AI is quietly revolutionizing modern life.
-
-## The Morning Routine Revolution
-
-Consider your morning routine. Your alarm clock might use AI to wake you during your lightest sleep phase. Your coffee maker can learn when you typically wake up and have your brew ready. Your news app curates articles based on your reading habits and interests.
-
-## Work and Productivity
-
-In the workplace, AI assists with:
-
-- **Email Management**: Smart filtering and priority inbox
-- **Calendar Optimization**: Suggesting meeting times based on everyone's schedule
-- **Document Analysis**: Quickly summarizing long reports
-- **Code Assistance**: Helping developers write better code faster
-
-## Entertainment Personalization
-
-Streaming services use sophisticated AI algorithms to understand not just what you watch, but when you watch it, how you watch it, and what mood you're likely in. This creates an increasingly personalized entertainment experience.
-
-## Health and Wellness
-
-AI-powered health apps can:
-- Track your activity patterns
-- Provide personalized workout recommendations
-- Monitor sleep quality
-- Suggest dietary improvements
-- Even detect potential health issues early
-
-## The Future Ahead
-
-As AI continues to evolve, we'll see even deeper integration into our lives. Smart cities will optimize traffic flow, energy consumption will be managed more efficiently, and personalized education will adapt to each learner's pace and style.
-
-## Ethical Considerations
-
-With great power comes great responsibility. As we embrace AI, we must also consider:
-
-- **Privacy**: How much data are we willing to share?
-- **Bias**: Ensuring AI systems are fair and inclusive
-- **Transparency**: Understanding how AI makes decisions
-- **Control**: Maintaining human oversight
-
-## Conclusion
-
-The key to successfully integrating AI into our lives is finding the right balance between convenience and control, between automation and autonomy. As these technologies continue to develop, staying informed and engaged will be crucial.
-
-The future is here, and it's powered by AI. The question isn't whether we'll use AI, but how we'll use it responsibly to enhance our lives while maintaining our humanity.
-    `,
-    tags: ['AI', 'Technology', 'Future', 'Innovation', 'Productivity'],
-    relatedPosts: [2, 3, 4],
-  },
-  {
-    id: 2,
-    title: 'Mindful Living in a Digital Age',
-    caption: 'Finding balance and peace in our hyper-connected world.',
-    category: 'Wellness',
-    image: 'https://images.unsplash.com/photo-1599036629621-07f8cb665695?w=800',
-    attentionScore: 0.89,
-    xp: 120,
-    readTime: '6 min read',
-    views: 8920,
-    comments: 64,
-    author: {
-      name: 'Sarah Chen',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-      level: 18,
-    },
-    content: `
-# The Art of Mindful Digital Living
-
-In today's hyper-connected world, finding moments of peace and mindfulness has become more important than ever. This guide explores practical strategies for maintaining mental wellness while navigating our digital landscape.
-
-## Understanding Digital Overwhelm
-
-The average person checks their phone 96 times per day. We're constantly bombarded with notifications, updates, and information. This constant connectivity can lead to:
-
-- Increased anxiety and stress
-- Reduced attention span
-- Sleep disruption
-- Decreased productivity
-- Weakened personal relationships
-
-## Setting Boundaries
-
-Creating healthy digital boundaries is essential:
-
-**Morning Routine**: Start your day without immediately checking your phone. Give yourself at least 30 minutes of screen-free time.
-
-**Designated Digital-Free Zones**: Keep bedrooms, dining areas, and certain spaces free from devices.
-
-**Notification Management**: Turn off non-essential notifications. You don't need to know every time someone likes your post.
-
-## Mindful Consumption
-
-Be intentional about your digital diet:
-
-1. **Quality over Quantity**: Choose meaningful content over mindless scrolling
-2. **Time Limits**: Set daily limits for social media apps
-3. **Purpose-Driven Use**: Ask yourself why you're picking up your phone
-4. **Scheduled Checks**: Batch your social media time instead of constant checking
-
-## The Power of Presence
-
-Practice being fully present in the moment:
-
-- **Single-Tasking**: Focus on one thing at a time
-- **Mindful Breaks**: Take regular breaks to breathe and reset
-- **Nature Time**: Spend time outdoors without devices
-- **Deep Conversations**: Have phone-free conversations with loved ones
-
-## Digital Detox Strategies
-
-Regular digital detoxes can reset your relationship with technology:
-
-- **Weekend Retreats**: Plan device-free weekends
-- **Evening Wind-Down**: No screens 1-2 hours before bed
-- **Vacation Boundaries**: Limit work communication during time off
-- **Social Media Breaks**: Take periodic breaks from platforms
-
-## Cultivating Real Connections
-
-Technology should enhance, not replace, human connection:
-
-- Video calls are better than text
-- Phone calls are better than messaging
-- In-person meetings are best of all
-
-## Conclusion
-
-Mindful digital living isn't about rejecting technology—it's about using it intentionally. By creating boundaries, being selective about consumption, and prioritizing real-world connections, we can enjoy the benefits of our digital age while protecting our mental health and well-being.
-
-Remember: You control technology, not the other way around.
-    `,
-    tags: ['Mindfulness', 'Wellness', 'Digital Health', 'Balance', 'Self-Care'],
-    relatedPosts: [1, 5, 6],
-  },
-];
+import { postsService, PostDetail } from '../../services/PostsService';
 
 export function PostDetailScreen() {
   const { postId } = useParams();
   const navigate = useNavigate();
-  const [post, setPost] = useState<Post | null>(null);
+  const [post, setPost] = useState<PostDetail | null>(null);
+  const [isLoadingPost, setIsLoadingPost] = useState(true);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -214,20 +38,22 @@ export function PostDetailScreen() {
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
 
+  // Fetch post from backend
   useEffect(() => {
-    // Find post by ID
-    const foundPost = mockPosts.find(p => p.id === Number(postId));
-    if (foundPost) {
-      setPost(foundPost);
-      performAnalysis(foundPost);
-    } else {
-      // If not found, use first post as default
-      setPost(mockPosts[0]);
-      performAnalysis(mockPosts[0]);
-    }
+    if (!postId) return;
+    const loadPost = async () => {
+      setIsLoadingPost(true);
+      const fetchedPost = await postsService.fetchPost(postId);
+      if (fetchedPost) {
+        setPost(fetchedPost);
+        performAnalysis(fetchedPost);
+      }
+      setIsLoadingPost(false);
+    };
+    loadPost();
   }, [postId, selectedLanguage]);
 
-  const performAnalysis = async (currentPost: Post) => {
+  const performAnalysis = async (currentPost: PostDetail) => {
     setIsAnalyzing(true);
     try {
       const result = await aiTranslationService.analyzeArticle(
@@ -293,9 +119,9 @@ export function PostDetailScreen() {
   }
 
   const qualityInfo = {
-    label: post.attentionScore >= 0.9 ? 'Productive' : post.attentionScore >= 0.75 ? 'Neutral' : 'Low-Value',
-    color: post.attentionScore >= 0.9 ? 'bg-[#51CF66]' : post.attentionScore >= 0.75 ? 'bg-[#FFD93D]' : 'bg-[#FF6B6B]',
-    icon: post.attentionScore >= 0.9 ? '🎯' : post.attentionScore >= 0.75 ? '📊' : '⚠️',
+    label: post.attention_score >= 0.9 ? 'Productive' : post.attention_score >= 0.75 ? 'Neutral' : 'Low-Value',
+    color: post.attention_score >= 0.9 ? 'bg-[#51CF66]' : post.attention_score >= 0.75 ? 'bg-[#FFD93D]' : 'bg-[#FF6B6B]',
+    icon: post.attention_score >= 0.9 ? '🎯' : post.attention_score >= 0.75 ? '📊' : '⚠️',
   };
 
   return (
@@ -375,7 +201,7 @@ export function PostDetailScreen() {
         {/* Hero Image */}
         <div className="relative aspect-[16/9] overflow-hidden">
           <img
-            src={post.image}
+            src={post.image_url}
             alt={post.title}
             className="w-full h-full object-cover"
           />
@@ -444,16 +270,18 @@ export function PostDetailScreen() {
           {/* Author Info */}
           <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <img
-                src={post.author.avatar}
-                alt={post.author.name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
+              {post.author_avatar && (
+                <img
+                  src={post.author_avatar}
+                  alt={post.author_name}
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+              )}
               <div>
-                <p className="font-bold text-gray-900">{post.author.name}</p>
+                <p className="font-bold text-gray-900">{post.author_name}</p>
                 <div className="flex items-center gap-2">
                   <Award className="w-4 h-4 text-[#EAB308]" />
-                  <span className="text-sm text-gray-600">Level {post.author.level}</span>
+                  <span className="text-sm text-gray-600">Level {post.author_level}</span>
                 </div>
               </div>
             </div>
@@ -462,12 +290,12 @@ export function PostDetailScreen() {
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp className="w-4 h-4 text-[#51CF66]" />
                 <span className="text-sm font-bold text-gray-900">
-                  {(post.attentionScore * 100).toFixed(0)}% Quality
+                  {(post.attention_score * 100).toFixed(0)}% Quality
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Clock className="w-4 h-4" />
-                <span>{post.readTime}</span>
+                <span>{post.read_time}</span>
               </div>
             </div>
           </div>
@@ -538,35 +366,7 @@ export function PostDetailScreen() {
             ))}
           </div>
 
-          {/* Related Posts */}
-          <div className="mt-12">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Related Articles</h3>
-            <div className="grid grid-cols-1 gap-4">
-              {mockPosts.slice(0, 3).map((relatedPost) => (
-                <button
-                  key={relatedPost.id}
-                  onClick={() => navigate(`/mobile/post/${relatedPost.id}`)}
-                  className="flex gap-4 bg-gray-50 rounded-2xl p-4 hover:bg-gray-100 transition-all text-left"
-                >
-                  <img
-                    src={relatedPost.image}
-                    alt={relatedPost.title}
-                    className="w-24 h-24 rounded-xl object-cover"
-                  />
-                  <div className="flex-1">
-                    <p className="font-bold text-gray-900 mb-1 line-clamp-2">
-                      {relatedPost.title}
-                    </p>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>{relatedPost.readTime}</span>
-                      <span>•</span>
-                      <span>{relatedPost.category}</span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+
         </div>
       </div>
 
@@ -598,6 +398,7 @@ export function PostDetailScreen() {
 
       {/* AI Buddy Character */}
       <EnhancedAICharacter article={{
+        id: post.id,
         title: post.title,
         content: post.content,
         category: post.category

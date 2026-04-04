@@ -12,7 +12,7 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const path = url.pathname;
+    const path = url.pathname.replace(/\/+$/, "") || "/";
 
     // CORS headers
     const corsHeaders = {
@@ -27,6 +27,37 @@ export default {
     }
 
     try {
+      // Root URL - friendly landing page / health check
+      if (path === '/') {
+        return new Response(JSON.stringify({
+          status: 'ok',
+          message: 'MindfulFeed Worker API is running',
+          version: '1.2.1',
+          endpoints: [
+            '/api/posts',
+            '/api/posts/:id',
+            '/api/rag/chat',
+            '/api/debug',
+            '/health'
+          ]
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Debug endpoint
+      if (path === '/api/debug') {
+        return new Response(JSON.stringify({
+          status: 'debug',
+          path: path,
+          originalPath: url.pathname,
+          method: request.method,
+          headers: Object.fromEntries(request.headers.entries())
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // R2 Upload endpoint
       if (path.startsWith('/r2/') && request.method === 'PUT') {
         return await handleR2Upload(request, env, corsHeaders);
@@ -54,12 +85,40 @@ export default {
         });
       }
 
+      // ============ POSTS API ============
+
+      // Bulk upload posts
+      if (path === '/api/posts/bulk-upload' && request.method === 'POST') {
+        return await handleBulkUpload(request, env, corsHeaders);
+      }
+
+      // List all posts (feed)
+      if (path === '/api/posts' && request.method === 'GET') {
+        return await handleGetPosts(request, env, corsHeaders);
+      }
+
+      // Get single post by ID
+      const postMatch = path.match(/^\/api\/posts\/(.+)$/);
+      if (postMatch && request.method === 'GET') {
+        return await handleGetPost(postMatch[1], env, corsHeaders);
+      }
+
+      // ============ RAG CHAT ============
+
       // RAG Chat Endpoint using Cloudflare Workers AI
       if (path === '/api/rag/chat' && request.method === 'POST') {
         return await handleRAGChat(request, env, corsHeaders);
       }
 
-      return new Response('Not Found', { status: 404, headers: corsHeaders });
+      return new Response(JSON.stringify({ 
+        error: 'Route not found', 
+        path: path,
+        originalPath: url.pathname,
+        method: request.method 
+      }), { 
+        status: 404, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     } catch (error) {
       console.error('Worker Error:', error);
       return new Response(JSON.stringify({ error: error.message }), {
@@ -233,129 +292,277 @@ async function handleD1Query(request, env, corsHeaders) {
   }
 }
 
+// ============ POSTS API HANDLERS ============
+
+/**
+ * GET /api/posts — List all posts for feed (excludes full content for performance)
+ */
+async function handleGetPosts(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const db = env.MINDFULFEED_DB;
+    const result = await db.prepare(
+      `SELECT id, title, caption, category, image_url, xp, attention_score, 
+              content_quality, read_time, views, comments, author_name, 
+              author_avatar, author_level, tags, created_at 
+       FROM posts ORDER BY created_at DESC`
+    ).all();
+
+    const posts = result.results.map(row => ({
+      ...row,
+      tags: JSON.parse(row.tags || '[]'),
+    }));
+
+    return new Response(JSON.stringify({ posts }), { status: 200, headers: jsonHeaders });
+  } catch (error) {
+    console.error('[Posts] List error:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+/**
+ * GET /api/posts/:id — Get single post with full content
+ */
+async function handleGetPost(postId, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const db = env.MINDFULFEED_DB;
+    const row = await db.prepare('SELECT * FROM posts WHERE id = ?').bind(postId).first();
+
+    if (!row) {
+      return new Response(JSON.stringify({ error: 'Post not found' }), { status: 404, headers: jsonHeaders });
+    }
+
+    const post = { ...row, tags: JSON.parse(row.tags || '[]') };
+    return new Response(JSON.stringify({ post }), { status: 200, headers: jsonHeaders });
+  } catch (error) {
+    console.error('[Posts] Get error:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+/**
+ * POST /api/posts/bulk-upload — Bulk insert posts and precompute embeddings
+ */
+async function handleBulkUpload(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const posts = await request.json();
+    if (!Array.isArray(posts) || posts.length === 0) {
+      return new Response(JSON.stringify({ error: 'Expected array of posts' }), { status: 400, headers: jsonHeaders });
+    }
+
+    const db = env.MINDFULFEED_DB;
+    console.log(`[Bulk Upload] Processing ${posts.length} posts...`);
+
+    for (const p of posts) {
+      const postId = p.id || `post-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      
+      // 1. Insert/Replace Post
+      await db.prepare(
+        `INSERT OR REPLACE INTO posts (id, title, caption, content, category, image_url, xp, attention_score, content_quality, read_time, views, comments, author_name, author_avatar, author_level, tags, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        postId, p.title, p.caption || '', p.content, p.category || 'General',
+        p.image_url || '', p.xp || 10, p.attention_score || 0.85,
+        p.content_quality || 'productive', p.read_time || '5 min read',
+        p.views || 0, p.comments || 0,
+        p.author_name || 'MindfulFeed Team', p.author_avatar || '',
+        p.author_level || 1, JSON.stringify(p.tags || []),
+        p.created_at || new Date().toISOString()
+      ).run();
+
+      // 2. Precompute Embeddings
+      if (env.AI && p.content) {
+        const chunks = chunkText(p.content, 300, 30);
+        console.log(`[Bulk Upload] Post ${postId}: Generated ${chunks.length} chunks`);
+        
+        try {
+          console.log(`[Bulk Upload] Post ${postId}: Calling AI.run for embeddings...`);
+          const embeddingsRes = await env.AI.run('@cf/baai/bge-small-en-v1.5', { text: chunks });
+          const embeddings = embeddingsRes.data;
+
+          if (!embeddings || embeddings.length === 0) {
+            console.error(`[Bulk Upload] Post ${postId}: AI returned NO embeddings!`);
+            continue;
+          }
+
+          console.log(`[Bulk Upload] Post ${postId}: Received ${embeddings.length} vectors. Inserting into D1...`);
+          const embedStmt = db.prepare(
+            'INSERT INTO post_embeddings (post_id, chunk_text, embedding_vector) VALUES (?, ?, ?)'
+          );
+          
+          const embedBatch = chunks.map((chunk, i) => 
+            embedStmt.bind(postId, chunk, JSON.stringify(embeddings[i]))
+          );
+          
+          // Clear old embeddings and batch insert new ones
+          await db.prepare('DELETE FROM post_embeddings WHERE post_id = ?').bind(postId).run();
+          const batchRes = await db.batch(embedBatch);
+          console.log(`[Bulk Upload] Post ${postId}: D1 Batch Success. Inserted ${batchRes.length} rows.`);
+        } catch (e) {
+          console.error(`[Bulk Upload] Post ${postId}: Fatal error during embeddings:`, e.name, e.message);
+        }
+      } else {
+        console.warn(`[Bulk Upload] Post ${postId}: Skipping embeddings (env.AI: ${!!env.AI}, hasContent: ${!!p.content})`);
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, count: posts.length }), { status: 200, headers: jsonHeaders });
+  } catch (error) {
+    console.error('[Posts] Bulk upload error:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+// ============ RAG CHAT ============
+
 /**
  * Handle RAG Chat Question
+ * Optimized: Uses precomputed embeddings + lightweight model
  */
 async function handleRAGChat(request, env, corsHeaders) {
   const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
   try {
-    console.log('--- [RAG Chat] Incoming Request ---');
-    
-    // 1. SAFE JSON PARSING
-    let payload;
-    try {
-      payload = await request.json();
-    } catch (e) {
-      console.error('[RAG Chat] Invalid JSON body', e);
-      return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400, headers: jsonHeaders });
+    const payload = await request.json();
+    const { postId, question, history = [] } = payload;
+
+    if (!postId || !question) {
+      return new Response(JSON.stringify({ error: "Missing postId or question" }), { status: 400, headers: jsonHeaders });
     }
 
-    const { articleId, question } = payload;
-    console.log(`[RAG Chat] Request Body - Article ID: ${articleId}, Question: ${question}`);
-
-    // 2. VALIDATE REQUEST BODY
-    if (!articleId || !question) {
-      console.error('[RAG Chat] Missing articleId or question');
-      return new Response(JSON.stringify({ error: "Missing articleId or question" }), { status: 400, headers: jsonHeaders });
-    }
-
-    // 3. FETCH ARTICLE FROM D1
+    const ragTotalStart = Date.now();
+    console.time("RAG_TOTAL");
     const db = env.MINDFULFEED_DB;
-    console.log(`[RAG Chat] Fetching article ${articleId} from database`);
     
-    let articleRow;
-    try {
-      articleRow = await db.prepare('SELECT content FROM articles WHERE id = ?').bind(articleId).first();
-    } catch (dbError) {
-      console.error('[RAG Chat] Database Error:', dbError.message, dbError.stack);
-      return new Response(JSON.stringify({ error: "Article not found or empty", details: dbError.message }), { status: 400, headers: jsonHeaders });
+    // 1. Fetch Article Metadata
+    const articleRow = await db.prepare('SELECT title FROM posts WHERE id = ?').bind(postId).first();
+    if (!articleRow) {
+      return new Response(JSON.stringify({ error: "Post not found" }), { status: 404, headers: jsonHeaders });
     }
 
-    if (!articleRow || !articleRow.content || articleRow.content.trim() === '') {
-      console.error(`[RAG Chat] Article ${articleId} not found or empty`);
-      return new Response(JSON.stringify({ error: "Article not found or empty" }), { status: 400, headers: jsonHeaders });
-    }
+    let context = '';
+    let retrievalMethod = 'precomputed';
+    let retrievalTime = 0;
 
-    const articleText = articleRow.content;
-    console.log(`[RAG Chat] Article fetched successfully, Content Length: ${articleText.length}`);
+    // 2. RETRIEVAL (Search stored embeddings)
+    if (env.AI) {
+      console.time("RETRIEVAL");
+      const retrievalStart = Date.now();
+      try {
+        const [storedEmbeddingsRes, queryEmbeddingRes] = await Promise.all([
+          db.prepare('SELECT chunk_text, embedding_vector FROM post_embeddings WHERE post_id = ?').bind(postId).all(),
+          env.AI.run('@cf/baai/bge-small-en-v1.5', { text: [question] })
+        ]);
 
-    // 4. CHUNK ARTICLE
-    const chunks = chunkText(articleText, 300, 50);
-    console.log(`[RAG Chat] Article chunked into ${chunks.length} pieces`);
+        const storedEmbeddings = storedEmbeddingsRes.results;
+        const queryVector = queryEmbeddingRes.data[0];
 
-    // 5. GET EMBEDDINGS (Wrapped safely)
-    let chunkEmbeddings;
-    let queryEmbedding;
-    
-    try {
-      if (!env.AI) {
-        throw new Error("env.AI binding missing from worker");
-      }
-      
-      const chunkEmbeddingsRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: chunks });
-      chunkEmbeddings = chunkEmbeddingsRes.data;
+        if (storedEmbeddings.length > 0) {
+          const scores = storedEmbeddings.map(row => ({
+            text: row.chunk_text,
+            score: cosineSimilarity(queryVector, JSON.parse(row.embedding_vector))
+          }));
 
-      const queryEmbeddingRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: [question] });
-      queryEmbedding = queryEmbeddingRes.data[0];
-    } catch (aiError) {
-      console.error('[RAG Chat] AI Embedding Error:', aiError.message, aiError.stack);
-      return new Response(JSON.stringify({ answer: "This information is not available in the article." }), { status: 200, headers: jsonHeaders });
-    }
-
-    // 6. SIMILARITY SEARCH
-    const scoredChunks = chunks.map((chunk, index) => {
-      return {
-        chunk,
-        score: cosineSimilarity(queryEmbedding, chunkEmbeddings[index])
-      };
-    });
-
-    scoredChunks.sort((a, b) => b.score - a.score);
-    const topChunks = scoredChunks.slice(0, 3);
-    const highestScore = topChunks[0]?.score || 0;
-    
-    console.log(`[RAG Chat] Highest embedding similarity score: ${highestScore}`);
-
-    if (highestScore < 0.5) {
-      console.log(`[RAG Chat] Similarity threshold not met.`);
-      return new Response(JSON.stringify({ 
-        answer: "This information is not available in the article."
-      }), { status: 200, headers: jsonHeaders });
-    }
-
-    const contextHTML = topChunks.map(c => c.chunk).join('\n...\n');
-
-    // 7. STRICT SYSTEM PROMPT
-    const promptParams = {
-      messages: [
-        {
-          role: 'system',
-          content: `You are an AI assistant that ONLY answers based on the given article context.\nDo NOT use external knowledge.\nIf answer is not found, say:\n'This information is not available in the article.'\n\nCONTEXT:\n${contextHTML}`
-        },
-        {
-          role: 'user',
-          content: question
+          scores.sort((a, b) => b.score - a.score);
+          context = scores.slice(0, 3).map(s => s.text).join('\n\n');
+        } else {
+          context = `Title: ${articleRow.title}`;
+          retrievalMethod = 'meta-only';
         }
-      ]
-    };
-
-    // 8. FINAL LLM CALL
-    let response;
-    try {
-      response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', promptParams);
-      console.log(`[RAG Chat] LLM responded successfully.`);
-    } catch (llmError) {
-      console.error('[RAG Chat] LLM Chat Error:', llmError.message, llmError.stack);
-      return new Response(JSON.stringify({ answer: "This information is not available in the article." }), { status: 200, headers: jsonHeaders });
+      } catch (e) {
+        console.error('[RAG] Retrieval Error:', e.message);
+        retrievalMethod = 'error';
+      }
+      retrievalTime = Date.now() - retrievalStart;
+      console.timeEnd("RETRIEVAL");
     }
 
-    // 9. SUCCESS RESPONSE
-    return new Response(JSON.stringify({ answer: response.response }), { status: 200, headers: jsonHeaders });
+    // 3. INFERENCE (Hybrid AI Assistant: Conversation + RAG + Memory)
+    console.time("INFERENCE");
+    const inferenceStart = Date.now();
+    
+    const systemPrompt = `You are an intelligent AI assistant designed for a hybrid conversational system that combines:
+* RAG (article-based knowledge)
+* Conversational interaction
+* User memory (personalization)
 
-  } catch (globalError) {
-    // 10. GLOBAL CATCH-ALL SAFEGUARD (NEVER RETURN 500)
-    console.error('[RAG Chat] FATAL GLOBAL ERROR:', globalError.message, globalError.stack);
-    return new Response(JSON.stringify({ answer: "This information is not available in the article." }), { status: 200, headers: jsonHeaders });
+Your role is to balance knowledge accuracy with natural conversation.
+
+---
+🧠 CORE BEHAVIOR (OPERATE IN THREE MODES):
+
+1. CONVERSATIONAL MODE (casual interaction)
+   - If greeting, personal talk, or simple chat: Response naturally and friendly.
+   - Use user's name if available (e.g. "Hey Shreyan! 👋").
+
+2. ARTICLE-AWARE MODE (RAG)
+   - If question is article-related: Use CONTEXT as primary source.
+   - Answer clearly, simplify explanations.
+   - Avoid guessing or hallucinating unknown parts.
+
+3. HYBRID MODE
+   - If mixing casual + article: Start conversational, then provide the answer.
+   - Example: "Good question! Based on the article, AI is mainly used for..."
+
+---
+🧠 MEMORY & CONTEXT PRIORITY:
+1. User-provided information (highest priority - e.g. "My name is Shreyan")
+2. Article context (provided below)
+3. General knowledge (limited use, only if needed for clarity)
+
+---
+🚫 STRICT RULES:
+- Do NOT behave like a strict robot.
+- Do NOT say "not available" unnecessarily if you can help explain or bridge the gap.
+- Do NOT ignore user tone.
+- Do NOT add filler greetings repeatedly.
+
+---
+CONTEXT:
+${context}
+---
+ANSWER STYLE: Friendly but intelligent, clear, structured, not too long.`;
+
+    // Construct message history for LLM
+    const chatMessages = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Add conversation history (last 8 messages for better memory/personalization)
+    if (Array.isArray(history) && history.length > 0) {
+      chatMessages.push(...history.slice(-8));
+    }
+
+    // Finally add the current user input as the last message
+    chatMessages.push({ role: 'user', content: question });
+
+    const aiRes = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: chatMessages,
+      max_tokens: 450, // Slightly more room for hybrid responses
+      temperature: 0.7 // Better for conversational flow
+    });
+    
+    const inferenceTime = Date.now() - inferenceStart;
+    console.timeEnd("INFERENCE");
+    
+    const totalTime = Date.now() - ragTotalStart;
+    console.timeEnd("RAG_TOTAL");
+
+    return new Response(JSON.stringify({ 
+      answer: aiRes.response,
+      method: retrievalMethod,
+      articleTitle: articleRow.title,
+      metrics: {
+        retrieval_ms: retrievalTime,
+        inference_ms: inferenceTime,
+        total_ms: totalTime
+      }
+    }), { status: 200, headers: jsonHeaders });
+
+  } catch (error) {
+    console.error('[RAG Chat] FATAL ERROR:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
   }
 }
 

@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Share2, Bookmark, Brain, Timer, TrendingUp, RefreshCw, Sparkles, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { postsService, PostFeed } from '../../services/PostsService';
 
 interface Post {
-  id: number;
+  id: string;
   image: string;
   title: string;
   caption: string;
@@ -23,79 +24,50 @@ const contentQualityLabels = {
   harmful: { label: 'Harmful', color: 'bg-[#DC2626]', icon: '✕' },
 };
 
-const mockPosts: Post[] = [
-  {
-    id: 1,
-    image: 'https://images.unsplash.com/photo-1764192114257-ae9ecf97eb6f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    title: 'The Power of Mindful Breathing',
-    caption: 'Discover how 5 minutes of mindful breathing can transform your day and reduce stress.',
-    category: 'Wellness',
-    xp: 15,
-    attentionScore: 0.92,
-    contentQuality: 'productive',
+function mapApiPostToFeed(apiPost: PostFeed): Post {
+  return {
+    id: apiPost.id,
+    image: apiPost.image_url,
+    title: apiPost.title,
+    caption: apiPost.caption,
+    category: apiPost.category,
+    xp: apiPost.xp,
+    attentionScore: apiPost.attention_score,
+    contentQuality: (apiPost.content_quality || 'productive') as Post['contentQuality'],
     liked: false,
     saved: false,
-  },
-  {
-    id: 2,
-    image: 'https://images.unsplash.com/photo-1760629863094-5b1e8d1aae74?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    title: 'The Future of AI Technology',
-    caption: 'Exploring how artificial intelligence is reshaping our world and what it means for tomorrow.',
-    category: 'Technology',
-    xp: 20,
-    attentionScore: 0.88,
-    contentQuality: 'productive',
-    liked: false,
-    saved: false,
-  },
-  {
-    id: 3,
-    image: 'https://images.unsplash.com/photo-1598439473183-42c9301db5dc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    title: 'Mountain Meditation Retreat',
-    caption: 'Find peace in nature with these stunning mountain meditation spots around the world.',
-    category: 'Travel',
-    xp: 18,
-    attentionScore: 0.95,
-    contentQuality: 'productive',
-    liked: false,
-    saved: false,
-  },
-  {
-    id: 4,
-    image: 'https://images.unsplash.com/photo-1608120663152-fe60f4f55fe3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    title: 'Books That Changed My Life',
-    caption: '10 powerful books that will transform your perspective and enhance your personal growth.',
-    category: 'Learning',
-    xp: 25,
-    attentionScore: 0.91,
-    contentQuality: 'productive',
-    liked: false,
-    saved: false,
-  },
-  {
-    id: 5,
-    image: 'https://images.unsplash.com/photo-1518310383802-640c2de311b2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    title: 'Morning Workout Routine',
-    caption: 'Start your day with this energizing 15-minute workout routine that requires no equipment.',
-    category: 'Fitness',
-    xp: 22,
-    attentionScore: 0.87,
-    contentQuality: 'neutral',
-    liked: false,
-    saved: false,
-  },
-];
+  };
+}
 
 export function FeedScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [posts, setPosts] = useState(mockPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [direction, setDirection] = useState(0);
   const [sessionTime, setSessionTime] = useState(0);
   const [showXPAnimation, setShowXPAnimation] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isEndOfFeed, setIsEndOfFeed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
+
+  // Fetch posts from backend on mount
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  const loadPosts = async () => {
+    setIsLoading(true);
+    try {
+      const apiPosts = await postsService.fetchPosts();
+      if (apiPosts.length > 0) {
+        setPosts(apiPosts.map(mapApiPostToFeed));
+      }
+    } catch (error) {
+      console.error('Failed to load posts:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const currentPost = posts[currentIndex];
 
@@ -129,14 +101,12 @@ export function FeedScreen() {
     }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate loading new content
-    setTimeout(() => {
-      setIsRefreshing(false);
-      setCurrentIndex(0);
-      setIsEndOfFeed(false);
-    }, 2000);
+    await loadPosts();
+    setCurrentIndex(0);
+    setIsEndOfFeed(false);
+    setIsRefreshing(false);
   };
 
   const toggleLike = () => {

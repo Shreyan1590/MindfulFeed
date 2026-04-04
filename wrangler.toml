@@ -21,6 +21,10 @@ database_id = "9b0453b7-2cfe-4280-86da-8fa9c72eac34"
 binding = "MINDFULFEED_ASSETS"
 bucket_name = "mindfulfeed-assets"
 
+# Workers AI Binding (REQUIRED for RAG embeddings + LLM)
+[ai]
+binding = "AI"
+
 # Environment Variables
 [vars]
 ENVIRONMENT = "production"
