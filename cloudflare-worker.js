@@ -54,6 +54,11 @@ export default {
         });
       }
 
+      // RAG Chat Endpoint using Cloudflare Workers AI
+      if (path === '/api/rag/chat' && request.method === 'POST') {
+        return await handleRAGChat(request, env, corsHeaders);
+      }
+
       return new Response('Not Found', { status: 404, headers: corsHeaders });
     } catch (error) {
       console.error('Worker Error:', error);
@@ -226,4 +231,143 @@ async function handleD1Query(request, env, corsHeaders) {
       }
     );
   }
+}
+
+/**
+ * Handle RAG Chat Question
+ */
+async function handleRAGChat(request, env, corsHeaders) {
+  try {
+    const { articleText, question } = await request.json();
+
+    if (!articleText || !question) {
+      return new Response('Missing articleText or question', { status: 400, headers: corsHeaders });
+    }
+
+    // 1. Chunk the article
+    const chunks = chunkText(articleText, 300, 50);
+
+    // 2. Generate embeddings for chunks
+    // Uses Cloudflare native embedding model
+    const chunkEmbeddingsRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: chunks });
+    const chunkEmbeddings = chunkEmbeddingsRes.data;
+
+    // 3. Generate embedding for query
+    const queryEmbeddingRes = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: [question] });
+    const queryEmbedding = queryEmbeddingRes.data[0];
+
+    // 4. Similarity Search (Cosine)
+    const scoredChunks = chunks.map((chunk, index) => {
+      return {
+        chunk,
+        score: cosineSimilarity(queryEmbedding, chunkEmbeddings[index])
+      };
+    });
+
+    // Sort by relevance (highest score first)
+    scoredChunks.sort((a, b) => b.score - a.score);
+    
+    // 5. Select top 3 chunks
+    const topChunks = scoredChunks.slice(0, 3);
+    const highestScore = topChunks[0]?.score || 0;
+
+    // Apply strict threshold to prevent hallucination
+    if (highestScore < 0.5) {
+      return new Response(JSON.stringify({ 
+        answer: "This information is not available in the article.",
+        confidence: highestScore,
+        chunksUsed: 0
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const contextHTML = topChunks.map(c => c.chunk).join('\n...\n');
+
+    // 6. Strict RAG LLM Prompt
+    const promptParams = {
+      messages: [
+        {
+          role: 'system',
+          content: `You are an AI assistant that ONLY answers based on the provided article context.
+
+STRICT RULES:
+* Answer ONLY using the given context
+* DO NOT use external knowledge
+* DO NOT guess or hallucinate
+* If answer is not found in context, say EXACTLY: "This information is not available in the article."
+* Be clear and concise
+* Use simple language
+
+CONTEXT:
+${contextHTML}`
+        },
+        {
+          role: 'user',
+          content: question
+        }
+      ]
+    };
+
+    // 7. Generate Response using standard Llama 3
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', promptParams);
+
+    return new Response(
+      JSON.stringify({
+        answer: response.response,
+        confidence: highestScore,
+        chunksUsed: topChunks.length
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  } catch (error) {
+    console.error('RAG Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+}
+
+/**
+ * Split text into overlapping semantic chunks
+ */
+function chunkText(text, maxWords = 300, overlap = 50) {
+  // Simple word-based chunker
+  const words = text.split(/\s+/);
+  const chunks = [];
+  let i = 0;
+  
+  if (words.length === 0) return [""];
+  
+  while (i < words.length) {
+    const chunkWords = words.slice(i, i + maxWords);
+    chunks.push(chunkWords.join(' '));
+    i += (maxWords - overlap);
+    if (i <= 0) break; // Infinite loop prevention on bad input
+  }
+  return chunks;
+}
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+function cosineSimilarity(vecA, vecB) {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }

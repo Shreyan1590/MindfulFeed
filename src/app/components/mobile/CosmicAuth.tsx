@@ -14,8 +14,19 @@ export function CosmicAuth() {
   const [planets, setPlanets] = useState<{ id: number; x: number; y: number; size: number; color: string }[]>([]);
   const navigate = useNavigate();
 
-  // Generate stars
   useEffect(() => {
+    // Check if user is already logged in
+    const userId = localStorage.getItem('mindfulfeed_userId');
+    const token = localStorage.getItem('mindfulfeed_token');
+    
+    if (userId && token) {
+      // Auto-login!
+      setIsLoading(true);
+      setTimeout(() => {
+        navigate('/mobile/feed');
+      }, 500);
+    }
+
     const newStars = Array.from({ length: 100 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
@@ -40,6 +51,11 @@ export function CosmicAuth() {
 
     // Simulate API call
     setTimeout(() => {
+      // Store persistent session
+      localStorage.setItem('mindfulfeed_userId', 'user_123');
+      localStorage.setItem('mindfulfeed_token', `token_${Math.random().toString(36).substr(2)}`);
+      localStorage.setItem('mindfulfeed_userName', fullName || 'Space Explorer');
+      
       setIsLoading(false);
       navigate('/mobile/feed');
     }, 2000);

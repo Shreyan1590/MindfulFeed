@@ -14,8 +14,13 @@ import {
   Award,
   ChevronDown,
   X,
+  Play,
+  RotateCcw,
 } from 'lucide-react';
 import { EnhancedAICharacter } from './EnhancedAICharacter';
+import { aiTranslationService, ArticleAnalysis } from '../../services/AITranslationService';
+import { ttsService } from '../../services/TextToSpeechService';
+import { AudioControlsPanel } from './AudioControlsPanel';
 
 interface Post {
   id: number;
@@ -203,17 +208,64 @@ export function PostDetailScreen() {
   const [saved, setSaved] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [readProgress, setReadProgress] = useState(0);
+  const [analysis, setAnalysis] = useState<ArticleAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
 
   useEffect(() => {
     // Find post by ID
     const foundPost = mockPosts.find(p => p.id === Number(postId));
     if (foundPost) {
       setPost(foundPost);
+      performAnalysis(foundPost);
     } else {
       // If not found, use first post as default
       setPost(mockPosts[0]);
+      performAnalysis(mockPosts[0]);
     }
-  }, [postId]);
+  }, [postId, selectedLanguage]);
+
+  const performAnalysis = async (currentPost: Post) => {
+    setIsAnalyzing(true);
+    try {
+      const result = await aiTranslationService.analyzeArticle(
+        currentPost.content,
+        currentPost.id.toString(),
+        selectedLanguage
+      );
+      setAnalysis(result);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleToggleAudio = async () => {
+    if (isAudioPlaying) {
+      ttsService.stop();
+      setIsAudioPlaying(false);
+    } else {
+      if (!analysis) return;
+      setIsAudioLoading(true);
+      try {
+        await ttsService.speak(analysis.summary, selectedLanguage);
+        setIsAudioPlaying(true);
+      } catch (error) {
+        console.error('Audio failed:', error);
+      } finally {
+        setIsAudioLoading(false);
+      }
+    }
+  };
+
+  const handleReplayAudio = async () => {
+    ttsService.stop();
+    setIsAudioPlaying(false);
+    setTimeout(handleToggleAudio, 100);
+  };
 
   useEffect(() => {
     // Track scroll progress
@@ -319,7 +371,7 @@ export function PostDetailScreen() {
       </AnimatePresence>
 
       {/* Content */}
-      <div id="post-content" className="h-full overflow-y-auto pt-16 pb-24">
+      <div id="post-content" className="h-full overflow-y-auto pb-24">
         {/* Hero Image */}
         <div className="relative aspect-[16/9] overflow-hidden">
           <img
@@ -353,6 +405,36 @@ export function PostDetailScreen() {
           <h1 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">
             {post.title}
           </h1>
+
+          {/* AI Insights Section */}
+          <AnimatePresence>
+            {analysis && (
+              <motion.div 
+                className="mb-8 p-4 bg-purple-50 rounded-2xl border-2 border-purple-100"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  <h4 className="font-bold text-purple-900">Buddy's Quick Insights</h4>
+                  <div className="ml-auto bg-purple-100 text-purple-600 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    AI POWERED
+                  </div>
+                </div>
+                <p className="text-purple-800 text-sm leading-relaxed mb-4 italic">
+                  "{analysis.summary}"
+                </p>
+                <div className="space-y-2">
+                  {analysis.keyPoints.slice(0, 2).map((point, i) => (
+                    <div key={i} className="flex gap-2 text-xs text-purple-700 bg-white/50 p-2 rounded-lg">
+                      <span>🎯</span>
+                      <span>{point}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Caption */}
           <p className="text-lg text-gray-600 mb-6 leading-relaxed">
@@ -503,14 +585,23 @@ export function PostDetailScreen() {
         </motion.button>
       )}
 
-      {/* AI Character Explainer - Enhanced with Real AI Analysis */}
-      <EnhancedAICharacter 
-        article={{
-          title: post.title,
-          content: post.content,
-          category: post.category,
-        }}
-      />
+      {/* Floating Audio Controls */}
+      {analysis && (
+        <AudioControlsPanel
+          isPlaying={isAudioPlaying}
+          isLoading={isAudioLoading}
+          onPlayPause={handleToggleAudio}
+          onReplay={handleReplayAudio}
+          title={post.title}
+        />
+      )}
+
+      {/* AI Buddy Character */}
+      <EnhancedAICharacter article={{
+        title: post.title,
+        content: post.content,
+        category: post.category
+      }} />
     </div>
   );
 }

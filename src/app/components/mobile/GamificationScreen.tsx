@@ -11,6 +11,8 @@ import {
   Heart,
   TrendingUp,
 } from 'lucide-react';
+
+// @ts-ignore - canvas-confetti has no types installed
 import confetti from 'canvas-confetti';
 
 interface Badge {
@@ -94,17 +96,17 @@ export function GamificationScreen() {
   };
 
   return (
-    <div className="h-full bg-gradient-to-b from-white to-gray-50 overflow-y-auto">
-      <div className="p-6 pb-24">
+    <div className="h-full bg-gradient-to-b from-white to-gray-50 overflow-hidden flex flex-col">
+      <div className="p-3 flex flex-col h-full min-h-0">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Gamification</h1>
-          <p className="text-gray-600">Level up your mindful journey</p>
+        <div className="mb-2">
+          <h1 className="text-xl font-bold text-gray-900 leading-tight">Gamification</h1>
+          <p className="text-gray-600 text-xs">Level up your mindful journey</p>
         </div>
 
         {/* Level Card */}
         <motion.div
-          className="bg-gradient-to-br from-[#6C63FF] to-[#3A86FF] rounded-3xl p-6 shadow-xl mb-6 text-white relative overflow-hidden"
+          className="bg-gradient-to-br from-[#6C63FF] to-[#3A86FF] rounded-xl p-3 shadow-lg mb-2 text-white relative overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -122,33 +124,36 @@ export function GamificationScreen() {
 
           <div className="relative z-10">
             {/* Level Badge */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
-                  <Trophy className="w-8 h-8 text-white" />
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-white/80 text-sm">Current Level</p>
-                  <p className="text-3xl font-bold">{currentLevel}</p>
+                  <p className="text-white/80 text-[10px]">Current Level</p>
+                  <p className="text-xl font-bold leading-none">{currentLevel}</p>
                 </div>
               </div>
               <button
                 onClick={handleLevelUpDemo}
-                className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-sm font-semibold hover:bg-white/30 transition-all"
+                className="bg-white/20 backdrop-blur-md px-2 py-1 rounded-full text-[10px] font-semibold hover:bg-white/30 transition-all"
               >
-                Demo Level Up
+                Demo
               </button>
             </div>
 
-            {/* XP Progress */}
-            <div className="mb-2">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="font-semibold">{currentXP} XP</span>
+            {/* Star Progress */}
+            <div>
+              <div className="flex justify-between items-center text-[10px] mb-1">
+                <div className="flex items-center gap-1">
+                  <Star className="w-3 h-3 text-yellow-300 fill-yellow-300" />
+                  <span className="font-bold">{currentXP} Stars</span>
+                </div>
                 <span className="font-semibold">{xpToNextLevel} to next level</span>
               </div>
-              <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+              <div className="h-2 bg-black/20 rounded-full overflow-hidden border border-white/10 p-[1px]">
                 <motion.div
-                  className="h-full bg-white rounded-full"
+                  className="h-full bg-gradient-to-r from-yellow-300 to-orange-400 rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${xpProgress}%` }}
                   transition={{ duration: 1, ease: 'easeOut' }}
@@ -159,85 +164,70 @@ export function GamificationScreen() {
         </motion.div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <motion.div
-            className="bg-white rounded-2xl p-4 shadow-lg text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="w-10 h-10 bg-[#EAB308]/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Award className="w-5 h-5 text-[#EAB308]" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">6</p>
-            <p className="text-xs text-gray-600">Badges</p>
-          </motion.div>
-
-          <motion.div
-            className="bg-white rounded-2xl p-4 shadow-lg text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="w-10 h-10 bg-[#6C63FF]/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Target className="w-5 h-5 text-[#6C63FF]" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">14</p>
-            <p className="text-xs text-gray-600">Streak</p>
-          </motion.div>
-
-          <motion.div
-            className="bg-white rounded-2xl p-4 shadow-lg text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="w-10 h-10 bg-[#51CF66]/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <TrendingUp className="w-5 h-5 text-[#51CF66]" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">85%</p>
-            <p className="text-xs text-gray-600">Quality</p>
-          </motion.div>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {[
+            { icon: Award, label: 'Badges', val: '6', color: '#FF6B6B' },
+            { icon: Star, label: 'Stars', val: currentXP.toString(), color: '#FFD93D' },
+            { icon: Target, label: 'Streak', val: '14', color: '#6C63FF' },
+          ].map((stat, i) => (
+            <motion.div
+              key={i}
+              className="bg-white rounded-xl p-2 shadow-sm border-2 border-gray-100 text-center"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.1 }}
+              whileHover={{ y: -2, borderColor: stat.color }}
+            >
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-1 shadow-inner"
+                style={{ backgroundColor: `${stat.color}20` }}
+              >
+                <stat.icon className={`w-4 h-4 ${stat.label === 'Stars' ? 'fill-current' : ''}`} style={{ color: stat.color }} />
+              </div>
+              <p className="text-sm font-black text-gray-900 leading-none">{stat.val}</p>
+              <p className="text-[8px] text-gray-400 font-black uppercase tracking-wider">{stat.label}</p>
+            </motion.div>
+          ))}
         </div>
 
         {/* Badges Section */}
         <motion.div
-          className="bg-white rounded-3xl p-6 shadow-lg"
+          className="bg-white rounded-xl p-3 shadow-lg flex-1 min-h-0 flex flex-col border border-gray-100"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Achievement Badges</h2>
-          <div className="grid grid-cols-3 gap-4">
+          <h2 className="text-sm font-black text-gray-900 mb-2 uppercase tracking-wide">Achievements</h2>
+          <div className="grid grid-cols-3 grid-rows-2 gap-2 flex-1 min-h-0">
             {badges.map((badge, index) => (
               <motion.button
                 key={badge.id}
                 onClick={() => setSelectedBadge(badge)}
-                className={`relative rounded-2xl p-4 flex flex-col items-center ${
+                className={`relative rounded-xl p-2 flex flex-col items-center justify-center ${
                   badge.unlocked
-                    ? 'bg-gradient-to-br from-[#6C63FF] to-[#3A86FF]'
-                    : 'bg-gray-100'
+                    ? 'bg-gradient-to-br from-[#6C63FF] to-[#3A86FF] shadow-md shadow-indigo-200'
+                    : 'bg-gray-50 border border-gray-100'
                 }`}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.5 + index * 0.1 }}
                 whileTap={{ scale: 0.95 }}
               >
-                {/* Badge Icon */}
+                {/* Badge Icon (Cartoon Style) */}
                 <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 ${
+                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-1 text-2xl shadow-lg transition-transform ${
                     badge.unlocked
-                      ? 'bg-white/20 text-white'
-                      : 'bg-gray-200 text-gray-400'
+                      ? 'bg-white/20 hover:scale-110'
+                      : 'bg-gray-200 grayscale'
                   }`}
                 >
-                  {badge.icon}
+                  {badge.id === 1 ? '🌟' : badge.id === 2 ? '📚' : badge.id === 3 ? '🧘' : badge.id === 4 ? '🚀' : badge.id === 5 ? '👑' : '🏆'}
                 </div>
 
                 {/* Badge Name */}
                 <p
-                  className={`text-xs font-semibold text-center ${
-                    badge.unlocked ? 'text-white' : 'text-gray-500'
+                  className={`text-[10px] font-black text-center leading-tight drop-shadow-sm ${
+                    badge.unlocked ? 'text-white' : 'text-gray-400'
                   }`}
                 >
                   {badge.name}
@@ -245,10 +235,10 @@ export function GamificationScreen() {
 
                 {/* Progress Bar for Locked Badges */}
                 {!badge.unlocked && badge.progress && badge.total && (
-                  <div className="w-full mt-2">
-                    <div className="h-1 bg-gray-300 rounded-full overflow-hidden">
+                  <div className="w-5/6 mt-1">
+                    <div className="h-0.5 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#6C63FF] rounded-full"
+                        className="h-full bg-indigo-400 rounded-full"
                         style={{ width: `${(badge.progress / badge.total) * 100}%` }}
                       />
                     </div>
@@ -258,17 +248,17 @@ export function GamificationScreen() {
                 {/* Unlock Indicator */}
                 {badge.unlocked && (
                   <motion.div
-                    className="absolute -top-1 -right-1 w-6 h-6 bg-[#51CF66] rounded-full flex items-center justify-center"
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-[#51CF66] rounded-full flex items-center justify-center shadow-sm"
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.6 + index * 0.1, type: 'spring' }}
                   >
                     <svg
-                      className="w-4 h-4 text-white"
+                      className="w-2.5 h-2.5 text-white"
                       fill="none"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth="2"
+                      strokeWidth="3"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                     >

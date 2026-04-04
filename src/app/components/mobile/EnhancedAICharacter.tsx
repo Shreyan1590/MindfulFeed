@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { aiTranslationService } from '../../services/AITranslationService';
 import { ttsService } from '../../services/TextToSpeechService';
+import { ragService } from '../../services/RAGService';
 
 interface Language {
   code: string;
@@ -106,12 +107,18 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
   const learnContentRef = useRef<HTMLDivElement>(null);
   const controls = useAnimation();
 
-  // Load AI analysis when component mounts
+  // Load AI analysis and Greet user
   useEffect(() => {
     if (article && !aiAnalysis) {
       loadAIAnalysis();
     }
   }, [article]);
+
+  useEffect(() => {
+    if (isExpanded) {
+      speakText("Hey there! I'm Buddy! Let's explore this together!", true);
+    }
+  }, [isExpanded]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -258,11 +265,17 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
       // Check for badges
       if (correctAnswers + 1 >= 3) {
         earnBadge('quick-learner');
+        speakText("Whoa! You're a quick learner!", true);
       }
       if (correctAnswers + 1 === quizQuestions.length) {
         earnBadge('perfect-score');
         awardPoints(50); // Bonus!
+        speakText("Perfect score! You're amazing!", true);
+      } else {
+        speakText("That's right! Great job!", true);
       }
+    } else {
+      speakText("Oops, not quite! But keep trying, you're doing great!");
     }
 
     incrementAIUsage();
@@ -287,23 +300,23 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
     }
 
     try {
-      // Use AI service to generate response
-      const response = await aiTranslationService.chatWithAI(
-        userMessage,
+      // Use AI RAG service to generate bounded response based purely on article content
+      const response = await ragService.askQuestion(
         article.content,
-        selectedLanguage.code,
-        chatMessages.map(m => ({ role: m.type, content: m.text }))
+        userMessage
       );
+      
+      const responseText = response.answer;
       
       setChatMessages(prev => [...prev, { 
         type: 'bot', 
-        text: response,
+        text: responseText,
         timestamp: Date.now()
       }]);
       
       // Speak the response in the current language
       if (soundEnabled) {
-        speakText(response, true); // Use excited voice
+        speakText(responseText, true); // Use excited voice
       }
       
       awardPoints(5);
@@ -331,6 +344,9 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
     if (lang.code !== 'en') {
       earnBadge('language-lover');
       awardPoints(10);
+      speakText(`Cool! Let's learn in ${lang.name}!`, true);
+    } else {
+      speakText("Switching to English, sounds good!");
     }
     
     // Reload AI analysis in new language
@@ -415,13 +431,12 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            className="mb-4 w-80 bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-pink-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl border-4 border-purple-500/50 overflow-hidden flex flex-col"
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            className="fixed top-4 left-4 right-4 bottom-24 bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-pink-900/95 backdrop-blur-2xl rounded-3xl shadow-2xl border-4 border-purple-500/50 overflow-hidden flex flex-col z-[60]"
+            initial={{ opacity: 0, scale: 0.8, y: -50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            exit={{ opacity: 0, scale: 0.8, y: -50 }}
             style={{
               boxShadow: '0 0 60px rgba(168, 85, 247, 0.6), 0 0 120px rgba(236, 72, 153, 0.4)',
-              maxHeight: '80vh',
             }}
           >
             {/* Animated Border Effect */}
@@ -565,7 +580,13 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                     </motion.button>
                     
                     <motion.button
-                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      onClick={() => {
+                        const newSound = !soundEnabled;
+                        setSoundEnabled(newSound);
+                        if (newSound) {
+                          setTimeout(() => speakText("Voice on! I can talk now!"), 100);
+                        }
+                      }}
                       className="bg-white/10 backdrop-blur-md rounded-full p-2 hover:bg-white/20 transition-all border border-white/30"
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
@@ -606,7 +627,10 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                         {badges.map((badge, index) => (
                           <motion.div
                             key={badge.id}
-                            onClick={() => setSelectedBadgeForDetails(badge)}
+                            onClick={() => {
+                              setSelectedBadgeForDetails(badge);
+                              speakText(`Check it out! That's the ${badge.name} badge!`, true);
+                            }}
                             className={`p-3 rounded-xl text-center relative overflow-hidden cursor-pointer ${
                               badge.earned 
                                 ? 'bg-gradient-to-br from-yellow-400 to-orange-500' 
@@ -739,7 +763,10 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                 <div className="bg-black/20 flex flex-col flex-1 min-h-0">
                   <div className="flex border-b border-purple-500/30 shrink-0">
                   <motion.button
-                    onClick={() => setShowChat(false)}
+                    onClick={() => {
+                      setShowChat(false);
+                      speakText("Let's look at the cool stuff we can learn!");
+                    }}
                     className={`flex-1 py-3 font-semibold transition-all relative ${
                       !showChat
                         ? 'bg-purple-600/50 text-white'
@@ -758,7 +785,10 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                     )}
                   </motion.button>
                   <motion.button
-                    onClick={() => setShowChat(true)}
+                    onClick={() => {
+                      setShowChat(true);
+                      speakText("I'm ready to chat! What's on your mind?");
+                    }}
                     className={`flex-1 py-3 font-semibold transition-all relative ${
                       showChat
                         ? 'bg-purple-600/50 text-white'
@@ -1206,10 +1236,24 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                   </div>
                 )}
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    
+    {/* Backdrop for Expanded State */}
+    <AnimatePresence>
+      {isExpanded && (
+        <motion.div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setIsExpanded(false)}
+        />
+      )}
+    </AnimatePresence>
 
       {/* Enhanced Floating Character Button */}
       <motion.button

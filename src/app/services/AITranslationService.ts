@@ -42,6 +42,14 @@ interface SimplificationResponse {
   keywords: string[];
 }
 
+export interface ArticleAnalysis {
+  summary: string;
+  keyPoints: string[];
+  simplifiedContent: SimplificationResponse;
+  translation: string;
+  transcript?: string;
+}
+
 class AITranslationService {
   private apiKey: string = 'YOUR_API_KEY_HERE'; // In production, use environment variable
   private cache: Map<string, TranslationResponse> = new Map();
@@ -141,6 +149,40 @@ class AITranslationService {
     // });
 
     return this.simulateAIChat(userMessage, articleContext, language);
+  }
+
+  /**
+   * Comprehensive Article Analysis
+   * Summarizes, extracts key points, simplifies, and translates in one go
+   */
+  async analyzeArticle(
+    text: string, 
+    articleId: string, 
+    targetLang: string,
+    ageLevel: number = 10
+  ): Promise<ArticleAnalysis> {
+    const cacheKey = `analysis_${articleId}_${targetLang}`;
+    
+    // Check if we have a cached version (simulated)
+    // In production, we'd cache this in D1 or similar
+    
+    // Simulate AI processing time for full analysis
+    await this.delay(800);
+
+    const [summary, points, simplified, translation] = await Promise.all([
+      this.simulateAISummary(text, targetLang),
+      this.simulateAIKeyPoints(text, targetLang),
+      this.simplifyForKids({ text, ageLevel, language: targetLang }),
+      this.translate({ text, sourceLang: 'en', targetLang })
+    ]);
+
+    return {
+      summary,
+      keyPoints: points,
+      simplifiedContent: simplified,
+      translation: translation.translatedText,
+      transcript: text // Full text transcript
+    };
   }
 
   /**
@@ -417,6 +459,32 @@ class AITranslationService {
     await this.delay(200);
     // In production: Return actual audio URL from TTS API
     return `data:audio/mp3;base64,mock_audio_${Date.now()}`;
+  }
+
+  private async simulateAISummary(text: string, language: string): Promise<string> {
+    const summaries: Record<string, string> = {
+      en: "This article explores the transformative impact of AI on our daily routines and its promising role in the future of work and productivity.",
+      ta: "இந்தக் கட்டுரை நமது தினசரி நடைமுறைகளில் AI இன் உருமாறும் தாக்கம் மற்றும் வேலை மற்றும் உற்பத்தித்திறனின் எதிர்காலத்தில் அதன் நம்பிக்கைக்குரிய பங்கை ஆராய்கிறது.",
+      hi: "यह लेख हमारी दैनिक दिनचर्या पर AI के परिवर्तनકારી प्रभाव और काम और उत्पादकता के भविष्य में इसकी आशाजनक भूमिका की पड़ताल करता है।",
+    };
+    return summaries[language] || summaries['en'];
+  }
+
+  private async simulateAIKeyPoints(text: string, language: string): Promise<string[]> {
+    const points: Record<string, string[]> = {
+      en: [
+        "AI is quietly revolutionizing modern life through personalization",
+        "It enhances productivity in email, calendars, and documentation",
+        "Ethical considerations like privacy and bias are crucial for safe adoption",
+        "Future smart cities will optimize traffic and energy with AI"
+      ],
+      ta: [
+        "AI தனிப்பயனாக்கம் மூலம் நவீன வாழ்க்கையை அமைதியாக புரட்சிகரமாக்குகிறது",
+        "மின்னஞ்சல், காலண்டர்கள் மற்றும் ஆவணப்படுத்தலில் இது உற்பத்தித்திறனை மேம்படுத்துகிறது",
+        "தனியுரிமை மற்றும் சார்பு போன்ற நெறிமுறைக் கருத்தாய்வுகள் பாதுகாப்பான தத்தெடுப்புக்கு முக்கியமானவை"
+      ]
+    };
+    return points[language] || points['en'];
   }
 
   private delay(ms: number): Promise<void> {

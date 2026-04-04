@@ -37,6 +37,18 @@ class TextToSpeechService {
     'gu': ['Google ગુજરાતી', 'Microsoft Gujarati'],
   };
 
+  private slangMap: Record<string, Record<string, string>> = {
+    'en': {
+      'going to': 'gonna',
+      'want to': 'wanna',
+      'hello': 'hey there!',
+      'yes': 'yeah!',
+      'no': 'nah,',
+      'good': 'awesome',
+      'very': 'really, really',
+    }
+  };
+
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this.synthesis = window.speechSynthesis;
@@ -45,6 +57,33 @@ class TextToSpeechService {
       console.warn('Text-to-Speech not supported in this browser');
       this.synthesis = null as any;
     }
+  }
+
+  /**
+   * Preprocess text for a more native, natural feel
+   */
+  private preprocessText(text: string, languageCode: string): string {
+    let processed = text;
+    
+    // 1. Add subtle slang if available for the language
+    const langSlang = this.slangMap[languageCode];
+    if (langSlang) {
+      Object.entries(langSlang).forEach(([key, value]) => {
+        const regex = new RegExp(`\\b${key}\\b`, 'gi');
+        processed = processed.replace(regex, value);
+      });
+    }
+
+    // 2. Add natural pauses (commas) after certain introductory words
+    const fillers = ['Actually', 'Well', 'So', 'Look'];
+    fillers.forEach(filler => {
+      const regex = new RegExp(`^${filler}\\s`, 'i');
+      if (regex.test(processed)) {
+        processed = processed.replace(regex, `${filler}, `);
+      }
+    });
+
+    return processed;
   }
 
   /**
@@ -59,9 +98,6 @@ class TextToSpeechService {
         if (this.voices.length > 0) {
           this.isInitialized = true;
           console.log('🎤 TTS Initialized with', this.voices.length, 'voices');
-          console.log('📢 Available languages:', 
-            [...new Set(this.voices.map(v => v.lang))].sort().join(', ')
-          );
           resolve();
         }
       };
@@ -87,57 +123,34 @@ class TextToSpeechService {
    */
   private findBestVoice(languageCode: string): SpeechSynthesisVoice | null {
     if (!this.voices || this.voices.length === 0) {
-      console.warn('No voices available');
       return null;
     }
 
     const langCode = this.languageCodes[languageCode] || languageCode;
     const preferredNames = this.preferredVoices[languageCode] || [];
 
-    console.log(`🔍 Finding voice for ${languageCode} (${langCode})`);
-
     // Strategy 1: Try preferred voice names
     for (const preferredName of preferredNames) {
       const voice = this.voices.find(v => 
         v.name.includes(preferredName) && v.lang.startsWith(langCode.split('-')[0])
       );
-      if (voice) {
-        console.log('✅ Found preferred voice:', voice.name, voice.lang);
-        return voice;
-      }
+      if (voice) return voice;
     }
 
-    // Strategy 2: Try exact language match (e.g., 'ta-IN')
+    // Strategy 2: Try exact language match
     const exactMatch = this.voices.find(v => v.lang === langCode);
-    if (exactMatch) {
-      console.log('✅ Found exact match:', exactMatch.name, exactMatch.lang);
-      return exactMatch;
-    }
+    if (exactMatch) return exactMatch;
 
-    // Strategy 3: Try language prefix match (e.g., 'ta')
+    // Strategy 3: Try language prefix match
     const langPrefix = langCode.split('-')[0];
     const prefixMatch = this.voices.find(v => v.lang.startsWith(langPrefix));
-    if (prefixMatch) {
-      console.log('✅ Found prefix match:', prefixMatch.name, prefixMatch.lang);
-      return prefixMatch;
-    }
+    if (prefixMatch) return prefixMatch;
 
-    // Strategy 4: For Indian languages, try any Indian voice
-    if (langCode.includes('-IN')) {
-      const indianVoice = this.voices.find(v => v.lang.includes('-IN'));
-      if (indianVoice) {
-        console.log('✅ Found Indian voice:', indianVoice.name, indianVoice.lang);
-        return indianVoice;
-      }
-    }
-
-    // Strategy 5: Fallback to default English
-    console.warn('⚠️ No native voice found, falling back to English');
     return this.voices.find(v => v.lang.startsWith('en')) || this.voices[0];
   }
 
   /**
-   * Speak text in the specified language
+   * Speak text with natural tone and emotion
    */
   public async speak(
     text: string,
@@ -146,24 +159,20 @@ class TextToSpeechService {
   ): Promise<void> {
     return new Promise(async (resolve, reject) => {
       if (!this.synthesis) {
-        console.error('❌ Speech Synthesis not available');
         reject(new Error('Speech Synthesis not supported'));
         return;
       }
 
-      // Wait for voices to load if not ready
       if (!this.isInitialized) {
         await this.initVoices();
       }
 
-      // Stop any current speech
       this.stop();
 
-      // Create utterance
-      const utterance = new SpeechSynthesisUtterance(text);
+      const naturalText = this.preprocessText(text, languageCode);
+      const utterance = new SpeechSynthesisUtterance(naturalText);
       this.currentUtterance = utterance;
 
-      // Find best voice for language
       const voice = this.findBestVoice(languageCode);
       if (voice) {
         utterance.voice = voice;
@@ -172,47 +181,28 @@ class TextToSpeechService {
         utterance.lang = this.languageCodes[languageCode] || 'en-US';
       }
 
-      // Configure voice parameters for natural speech
-      utterance.pitch = config.pitch ?? 1.0;     // 0.0 to 2.0
-      utterance.rate = config.rate ?? 0.9;       // 0.1 to 10 (0.9 = slightly slower, more clear)
-      utterance.volume = config.volume ?? 1.0;   // 0.0 to 1.0
-
-      // Event handlers
-      utterance.onstart = () => {
-        console.log('🎤 Speaking:', text.substring(0, 50) + '...');
-        console.log('🗣️ Voice:', utterance.voice?.name || 'default');
-        console.log('🌍 Language:', utterance.lang);
-      };
+      // Configure parameters for natural speech
+      utterance.pitch = config.pitch ?? 1.05;    // Slightly higher for a friendly buddy tone
+      utterance.rate = config.rate ?? 0.95;      // Slightly slower for better clarity
+      utterance.volume = config.volume ?? 1.0;
 
       utterance.onend = () => {
-        console.log('✅ Finished speaking');
         this.currentUtterance = null;
         resolve();
       };
 
       utterance.onerror = (event) => {
         this.currentUtterance = null;
-        
-        // Don't reject on interruption or cancellation - these are normal
-        if (event.error === 'interrupted' || event.error === 'canceled') {
-          console.log('ℹ️ Speech interrupted (normal when starting new speech)');
-          resolve();
-        } else if (event.error === 'not-allowed') {
-          // Browser blocked autoplay - this is normal, just log silently
-          console.log('ℹ️ Speech not allowed (requires user interaction first)');
+        if (event.error === 'interrupted' || event.error === 'canceled' || event.error === 'not-allowed') {
           resolve();
         } else {
-          // Only log actual errors
-          console.error('❌ Speech error:', event.error, event);
           reject(new Error(`Speech synthesis error: ${event.error}`));
         }
       };
 
-      // Speak!
       try {
         this.synthesis.speak(utterance);
       } catch (error) {
-        console.error('❌ Failed to speak:', error);
         reject(error);
       }
     });
@@ -222,114 +212,50 @@ class TextToSpeechService {
    * Stop current speech
    */
   public stop(): void {
-    if (this.synthesis && this.synthesis.speaking) {
+    if (this.synthesis && (this.synthesis.speaking || this.synthesis.pending)) {
       this.synthesis.cancel();
       this.currentUtterance = null;
-      // Don't log every stop - causes console spam
     }
   }
 
   /**
-   * Pause current speech
+   * Speak with excitement!
    */
-  public pause(): void {
-    if (this.synthesis && this.synthesis.speaking) {
-      this.synthesis.pause();
-      console.log('⏸️ Speech paused');
-    }
+  public async speakExcited(text: string, languageCode: string = 'en'): Promise<void> {
+    const excitedText = `Wow! ${text}!`;
+    return this.speak(excitedText, languageCode, { pitch: 1.25, rate: 1.1 });
   }
 
   /**
-   * Resume paused speech
+   * Speak with thoughtful hesitation
    */
-  public resume(): void {
-    if (this.synthesis && this.synthesis.paused) {
-      this.synthesis.resume();
-      console.log('▶️ Speech resumed');
-    }
+  public async speakThinking(text: string, languageCode: string = 'en'): Promise<void> {
+    const thinkingText = `Um, let's see... ${text}`;
+    return this.speak(thinkingText, languageCode, { pitch: 0.95, rate: 0.85 });
   }
 
   /**
-   * Check if currently speaking
+   * Speak in a casual, conversational way
    */
-  public isSpeaking(): boolean {
-    return this.synthesis ? this.synthesis.speaking : false;
+  public async speakCasual(text: string, languageCode: string = 'en'): Promise<void> {
+    return this.speak(text, languageCode, { pitch: 1.0, rate: 1.0 });
   }
 
   /**
-   * Check if paused
-   */
-  public isPaused(): boolean {
-    return this.synthesis ? this.synthesis.paused : false;
-  }
-
-  /**
-   * Get available voices for a language
-   */
-  public getVoicesForLanguage(languageCode: string): SpeechSynthesisVoice[] {
-    const langCode = this.languageCodes[languageCode] || languageCode;
-    const langPrefix = langCode.split('-')[0];
-    
-    return this.voices.filter(v => 
-      v.lang === langCode || v.lang.startsWith(langPrefix)
-    );
-  }
-
-  /**
-   * Get all available voices
-   */
-  public getAllVoices(): SpeechSynthesisVoice[] {
-    return this.voices;
-  }
-
-  /**
-   * Speak text with natural pauses (for longer content)
+   * Speak text with natural pauses for longer content
    */
   public async speakWithPauses(
     text: string,
-    languageCode: string = 'en',
-    config: Partial<VoiceConfig> = {}
+    languageCode: string = 'en'
   ): Promise<void> {
-    // Split by sentences
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     
     for (const sentence of sentences) {
       if (sentence.trim()) {
-        await this.speak(sentence.trim(), languageCode, config);
-        // Small pause between sentences
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await this.speak(sentence.trim(), languageCode);
+        await new Promise(resolve => setTimeout(resolve, 250));
       }
     }
-  }
-
-  /**
-   * Speak text character by character (for emphasis)
-   */
-  public async speakSlowly(
-    text: string,
-    languageCode: string = 'en'
-  ): Promise<void> {
-    return this.speak(text, languageCode, { rate: 0.6, pitch: 1.1 });
-  }
-
-  /**
-   * Speak text with excitement
-   */
-  public async speakExcited(
-    text: string,
-    languageCode: string = 'en'
-  ): Promise<void> {
-    return this.speak(text, languageCode, { rate: 1.1, pitch: 1.3 });
-  }
-
-  /**
-   * Speak text calmly
-   */
-  public async speakCalmly(
-    text: string,
-    languageCode: string = 'en'
-  ): Promise<void> {
-    return this.speak(text, languageCode, { rate: 0.85, pitch: 0.9 });
   }
 }
 
