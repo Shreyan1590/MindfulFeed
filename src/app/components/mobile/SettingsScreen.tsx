@@ -202,7 +202,10 @@ export function SettingsScreen() {
             </button>
 
             <button
-              onClick={() => navigate('/auth')}
+              onClick={() => {
+                localStorage.clear();
+                navigate('/');
+              }}
               className="w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-red-50 transition-all"
             >
               <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">

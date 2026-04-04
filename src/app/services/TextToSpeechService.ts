@@ -26,6 +26,8 @@ class TextToSpeechService {
     'hi': 'hi-IN',      // Hindi (India)
     'ml': 'ml-IN',      // Malayalam (India)
     'gu': 'gu-IN',      // Gujarati (India)
+    'es': 'es-ES',      // Spanish (Spain)
+    'fr': 'fr-FR',      // French (France)
   };
 
   // Preferred voice names for each language (fallback to any matching language)
@@ -35,6 +37,8 @@ class TextToSpeechService {
     'hi': ['Google हिन्दी', 'Microsoft Hindi', 'Lekha', 'Hemant'],
     'ml': ['Google മലയാളം', 'Microsoft Malayalam'],
     'gu': ['Google ગુજરાતી', 'Microsoft Gujarati'],
+    'es': ['Google español', 'Microsoft Helena', 'Monica', 'Paulina'],
+    'fr': ['Google français', 'Microsoft Hortense', 'Thomas', 'Audrey'],
   };
 
   private slangMap: Record<string, Record<string, string>> = {
@@ -46,6 +50,16 @@ class TextToSpeechService {
       'no': 'nah,',
       'good': 'awesome',
       'very': 'really, really',
+    },
+    'es': {
+      'hola': '¡hola, qué tal!',
+      'sí': '¡claro!',
+      'gracias': '¡muchas gracias!',
+    },
+    'fr': {
+      'bonjour': 'salut!',
+      'oui': 'ouais!',
+      'merci': 'merci beaucoup!',
     }
   };
 
@@ -56,6 +70,29 @@ class TextToSpeechService {
     } else {
       console.warn('Text-to-Speech not supported in this browser');
       this.synthesis = null as any;
+    }
+  }
+
+  /**
+   * Status checking
+   */
+  public isPlaying(): boolean {
+    return this.synthesis?.speaking || false;
+  }
+
+  public isPaused(): boolean {
+    return this.synthesis?.paused || false;
+  }
+
+  public pause(): void {
+    if (this.synthesis && this.synthesis.speaking && !this.synthesis.paused) {
+      this.synthesis.pause();
+    }
+  }
+
+  public resume(): void {
+    if (this.synthesis && this.synthesis.paused) {
+      this.synthesis.resume();
     }
   }
 

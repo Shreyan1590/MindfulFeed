@@ -1,44 +1,60 @@
 -- MindfulFeed Database Schema for Cloudflare D1
 -- Database ID: 9b0453b7-2cfe-4280-86da-8fa9c72eac34
 
--- Posts / Articles Table (unified feed + article content)
+-- Users Table (Profile & Progress)
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  xp INTEGER DEFAULT 0,
+  level INTEGER DEFAULT 1,
+  attention_score REAL DEFAULT 1.0,
+  badges TEXT DEFAULT '[]',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Posts / Articles Table
 CREATE TABLE IF NOT EXISTS posts (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   caption TEXT,
   content TEXT NOT NULL,
   category TEXT,
+  tags TEXT DEFAULT '[]',
   image_url TEXT,
+  author_id TEXT,
+  author_name TEXT,
+  author_level INTEGER DEFAULT 1,
   xp INTEGER DEFAULT 10,
   attention_score REAL DEFAULT 0.85,
   content_quality TEXT DEFAULT 'productive',
   read_time TEXT DEFAULT '5 min read',
-  views INTEGER DEFAULT 0,
-  comments INTEGER DEFAULT 0,
-  author_name TEXT DEFAULT 'MindfulFeed Team',
-  author_avatar TEXT,
-  author_level INTEGER DEFAULT 1,
-  tags TEXT DEFAULT '[]',
-  created_at TEXT DEFAULT (datetime('now'))
+  views_count INTEGER DEFAULT 0,
+  total_watch_time INTEGER DEFAULT 0, -- in seconds
+  comments_count INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (author_id) REFERENCES users(id)
 );
 
--- User Progress Table
-CREATE TABLE IF NOT EXISTS user_progress (
-  user_id TEXT PRIMARY KEY,
-  total_points INTEGER DEFAULT 0,
-  badges TEXT DEFAULT '[]',
-  quiz_progress TEXT DEFAULT '{}',
-  last_active TEXT,
-  created_at TEXT
+-- Interactions & Engagement Tracking
+CREATE TABLE IF NOT EXISTS interactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  post_id TEXT NOT NULL,
+  time_spent INTEGER DEFAULT 0, -- session time in seconds
+  xp_earned INTEGER DEFAULT 0,
+  scroll_depth REAL DEFAULT 0,
+  timestamp TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (post_id) REFERENCES posts(id)
 );
 
--- User Activity Log
+-- Activity Log (Extended)
 CREATE TABLE IF NOT EXISTS activity_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,
-  activity_type TEXT,
+  activity_type TEXT, -- 'view', 'like', 'share', 'upload'
   activity_data TEXT,
-  timestamp TEXT
+  timestamp TEXT DEFAULT (datetime('now'))
 );
 
 -- Chat History

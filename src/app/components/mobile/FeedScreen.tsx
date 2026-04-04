@@ -13,6 +13,8 @@ interface Post {
   xp: number;
   attentionScore: number;
   contentQuality: 'productive' | 'neutral' | 'low-value' | 'harmful';
+  authorName: string;
+  authorLevel: number;
   liked: boolean;
   saved: boolean;
 }
@@ -34,6 +36,8 @@ function mapApiPostToFeed(apiPost: PostFeed): Post {
     xp: apiPost.xp,
     attentionScore: apiPost.attention_score,
     contentQuality: (apiPost.content_quality || 'productive') as Post['contentQuality'],
+    authorName: apiPost.author_name || 'MindfulFeed Team',
+    authorLevel: apiPost.author_level || 1,
     liked: false,
     saved: false,
   };
@@ -79,25 +83,29 @@ export function FeedScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  // Check if end of feed
+  // Check if end of feed (Disabled for unlimited feed)
   useEffect(() => {
-    if (currentIndex >= posts.length - 1) {
-      setIsEndOfFeed(true);
-    }
+    // We no longer stop at the end. We will loop or refetch.
   }, [currentIndex, posts.length]);
 
   // Touch handlers for swipe
   const handleSwipe = (newDirection: number) => {
-    if (newDirection > 0 && currentIndex < posts.length - 1) {
-      setDirection(1);
-      setCurrentIndex((prev) => prev + 1);
+    if (newDirection > 0) {
+      // Swipe up (Next)
+      if (currentIndex < posts.length - 1) {
+        setDirection(1);
+        setCurrentIndex((prev) => prev + 1);
+      } else {
+        // Loop back to start for 'Unlimited' feel
+        setDirection(1);
+        setCurrentIndex(0);
+      }
       setShowXPAnimation(true);
       setTimeout(() => setShowXPAnimation(false), 1000);
-      setIsEndOfFeed(false);
     } else if (newDirection < 0 && currentIndex > 0) {
+      // Swipe down (Prev)
       setDirection(-1);
       setCurrentIndex((prev) => prev - 1);
-      setIsEndOfFeed(false);
     }
   };
 
@@ -149,7 +157,7 @@ export function FeedScreen() {
     <div className="relative h-full bg-black overflow-hidden">
       {/* Post Content */}
       <AnimatePresence mode="wait" custom={direction}>
-        {!isEndOfFeed ? (
+        {posts.length > 0 && (
           <motion.div
             key={currentPost.id}
             custom={direction}
@@ -203,6 +211,17 @@ export function FeedScreen() {
               {/* Category Tag */}
               <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] rounded-full px-4 py-2 mb-3">
                 <span className="text-white text-sm font-bold">{currentPost.category}</span>
+              </div>
+
+              {/* Author & Creator Level */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-white/70 text-xs font-semibold uppercase tracking-wider">
+                  By {currentPost.authorName}
+                </span>
+                <div className="w-1 h-1 bg-white/30 rounded-full" />
+                <span className="text-[#EAB308] text-xs font-bold uppercase tracking-wider">
+                  Level {currentPost.authorLevel} Creator
+                </span>
               </div>
 
               {/* Title */}
@@ -293,49 +312,6 @@ export function FeedScreen() {
                 animate={{ width: `${((currentIndex + 1) / posts.length) * 100}%` }}
                 transition={{ duration: 0.3 }}
               />
-            </div>
-          </motion.div>
-        ) : (
-          // End of Feed State
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-br from-[#6C63FF] to-[#3A86FF] flex items-center justify-center p-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <div className="text-center">
-              <motion.div
-                className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto mb-6"
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <Brain className="w-12 h-12 text-white" />
-              </motion.div>
-              <h2 className="text-white text-3xl font-bold mb-3">You're All Caught Up!</h2>
-              <p className="text-white/80 text-lg mb-8">
-                You've reached the end of today's mindful content.
-              </p>
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="bg-white text-[#6C63FF] px-8 py-4 rounded-full font-bold text-lg flex items-center gap-3 mx-auto hover:bg-white/90 transition-all disabled:opacity-50"
-              >
-                {isRefreshing ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                    </motion.div>
-                    Refreshing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-5 h-5" />
-                    Refresh Feed
-                  </>
-                )}
-              </button>
             </div>
           </motion.div>
         )}

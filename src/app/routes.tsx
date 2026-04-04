@@ -1,11 +1,10 @@
-import { createBrowserRouter } from "react-router";
+import { createHashRouter } from "react-router";
 import { RootLayout } from "./components/RootLayout";
 import { Home } from "./components/Home";
 import { AIEngine } from "./components/AIEngine";
 import { Analytics } from "./components/Analytics";
 import { Gamification } from "./components/Gamification";
 import { Settings } from "./components/Settings";
-import { Auth } from "./components/Auth";
 import { LoadingScreen } from "./components/mobile/LoadingScreen";
 import { MobileLayout } from "./components/mobile/MobileLayout";
 import { FeedScreen } from "./components/mobile/FeedScreen";
@@ -22,14 +21,10 @@ import { PostDetailScreen } from "./components/mobile/PostDetailScreen";
 import { CosmicAuth } from "./components/mobile/CosmicAuth";
 import { SearchResultsScreen } from "./components/mobile/SearchResultsScreen";
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: "/",
     Component: CosmicAuth,
-  },
-  {
-    path: "/auth",
-    Component: Auth,
   },
   {
     path: "/loading",

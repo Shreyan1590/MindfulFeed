@@ -1,7 +1,38 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Edit, Award, Flame, TrendingUp, Calendar, BookOpen } from 'lucide-react';
 
 export function ProfileScreen() {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const storedUserId = localStorage.getItem('mindfulfeed_userId') || 'user_dhilip_k';
+        const res = await fetch(`https://mindfulfeed-worker.info-skillxpress.workers.dev/api/user/${storedUserId}`);
+        const data = await res.json();
+        setUser(data);
+      } catch (err) {
+        console.error('Failed to fetch user:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  if (loading || !user) {
+    return (
+      <div className="h-full flex items-center justify-center bg-white">
+        <motion.div
+          className="w-12 h-12 border-4 border-[#6C63FF] border-t-transparent rounded-full"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+        />
+      </div>
+    );
+  }
   return (
     <div className="h-full bg-gradient-to-b from-white to-gray-50 overflow-y-auto">
       <div className="p-6 pb-24">
@@ -37,13 +68,13 @@ export function ProfileScreen() {
             </div>
 
             {/* Name & Username */}
-            <h1 className="text-2xl font-bold text-white mb-1">Sarah Johnson</h1>
-            <p className="text-white/80 mb-4">@sarahj_mindful</p>
+            <h1 className="text-2xl font-bold text-white mb-1">{user?.name || 'Explorer'}</h1>
+            <p className="text-white/80 mb-4">@{user?.name?.toLowerCase().replace(/\s+/g, '_') || 'user'}_mindful</p>
 
             {/* Level Badge */}
             <div className="bg-white/20 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2">
               <Award className="w-5 h-5 text-white" />
-              <span className="text-white font-bold">Level 8 • 2480 XP</span>
+              <span className="text-white font-bold">Level {user.level} • {user.xp} XP</span>
             </div>
           </div>
         </motion.div>
@@ -78,7 +109,7 @@ export function ProfileScreen() {
                 <TrendingUp className="w-5 h-5 text-[#6C63FF]" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">85%</p>
+                <p className="text-2xl font-bold text-gray-900">{Math.round(user.attention_score * 100)}%</p>
                 <p className="text-xs text-gray-600">Quality Score</p>
               </div>
             </div>

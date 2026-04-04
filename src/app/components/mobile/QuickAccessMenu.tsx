@@ -7,6 +7,10 @@ export function QuickAccessMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
+  const isPostDetail = location.pathname.includes('/mobile/post/');
+  const bottomPos = isPostDetail ? 'bottom-80' : 'bottom-24';
+  const menuBottomPos = isPostDetail ? 'bottom-[380px]' : 'bottom-40';
+
   const menuItems = [
     { icon: Home, label: 'Feed', path: '/mobile/feed', color: 'from-[#51CF66] to-[#34D399]' },
     { icon: Search, label: 'Search', path: '/mobile/search', color: 'from-[#3B82F6] to-[#60A5FA]' },
@@ -27,7 +31,7 @@ export function QuickAccessMenu() {
       {/* Floating Action Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] rounded-full shadow-2xl flex items-center justify-center z-40"
+        className={`fixed ${bottomPos} right-6 w-14 h-14 bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] rounded-full shadow-2xl flex items-center justify-center z-50`}
         whileTap={{ scale: 0.9 }}
         animate={{ rotate: isOpen ? 45 : 0 }}
       >
@@ -53,7 +57,7 @@ export function QuickAccessMenu() {
 
             {/* Menu Items */}
             <motion.div
-              className="fixed bottom-40 right-6 z-40 flex flex-col gap-3"
+              className={`fixed ${menuBottomPos} right-6 z-50 flex flex-col gap-3`}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}

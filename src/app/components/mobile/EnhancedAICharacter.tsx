@@ -29,6 +29,7 @@ import {
 import { aiTranslationService } from '../../services/AITranslationService';
 import { ttsService } from '../../services/TextToSpeechService';
 import { ragService } from '../../services/RAGService';
+import { sttService, STTResult } from '../../services/SpeechToTextService';
 
 interface Language {
   code: string;
@@ -103,6 +104,8 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
   const [showParticles, setShowParticles] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedBadgeForDetails, setSelectedBadgeForDetails] = useState<Badge | null>(null);
+  const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const learnContentRef = useRef<HTMLDivElement>(null);
@@ -164,6 +167,25 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
     } finally {
       setIsSpeaking(false);
     }
+  };
+
+  // Helper: Stop speaking
+  const stopSpeaking = () => {
+    ttsService.stop();
+    setIsSpeaking(false);
+    setPlayingMessageIndex(null);
+  };
+
+  // Replay a specific message
+  const handleReplay = async (index: number, text: string) => {
+    if (playingMessageIndex === index) {
+      stopSpeaking();
+      return;
+    }
+    
+    setPlayingMessageIndex(index);
+    await speakText(text);
+    setPlayingMessageIndex(null);
   };
 
   // Load AI-generated content analysis
@@ -342,12 +364,51 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
     }
   };
 
+  // Handle Voice Input with real STT
+  const handleMicClick = () => {
+    if (isListening) {
+      sttService.stop();
+      return;
+    }
+
+    sttService.onStatusChange((status) => {
+      setIsListening(status === 'listening');
+      if (status === 'processing') setIsProcessingVoice(true);
+      if (status === 'idle') setIsProcessingVoice(false);
+    });
+
+    sttService.onResult((result: STTResult) => {
+      setChatInput(result.text);
+      if (result.isFinal) {
+        setIsProcessingVoice(false);
+        // Optional: Auto-send if confidence is high
+        if (result.confidence > 0.8) {
+          setTimeout(() => handleChatSend(), 500);
+        }
+      }
+    });
+
+    sttService.onError((error) => {
+      console.error('STT Error:', error);
+      setIsListening(false);
+      setIsProcessingVoice(false);
+    });
+
+    sttService.start(selectedLanguage.code === 'en' ? 'en-US' : 
+                   selectedLanguage.code === 'ta' ? 'ta-IN' : 
+                   selectedLanguage.code === 'hi' ? 'hi-IN' : 
+                   selectedLanguage.code === 'es' ? 'es-ES' : 'fr-FR');
+  };
+
   // Handle language change
   const handleLanguageChange = async (lang: Language) => {
     setSelectedLanguage(lang);
     setShowLanguageMenu(false);
     setIsLoadingAI(true);
     setCharacterMood('thinking');
+    
+    // Stop any current speech
+    stopSpeaking();
     
     if (lang.code !== 'en') {
       earnBadge('language-lover');
@@ -394,7 +455,7 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
   };
 
   return (
-    <div className="fixed bottom-20 right-4 z-50">
+    <div className="fixed bottom-48 right-4 z-[55]">
       {/* Floating Particles */}
       <AnimatePresence>
         {showParticles && (
@@ -1147,22 +1208,53 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                             transition={{ delay: 0.1 }}
                           >
                             <div
-                              className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-lg ${
+                              className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-lg relative group ${
                                 msg.type === 'user'
                                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
                                   : 'bg-gradient-to-r from-blue-900/80 to-cyan-900/80 text-white border border-blue-500/50'
                               }`}
                             >
                               {msg.type === 'bot' && (
-                                <motion.span 
-                                  className="text-2xl mr-2 inline-block"
-                                  animate={{ rotate: [0, 10, -10, 0] }}
-                                  transition={{ duration: 0.5 }}
-                                >
-                                  🦉
-                                </motion.span>
+                                <div className="flex items-start gap-2">
+                                  <motion.span 
+                                    className="text-2xl inline-block shrink-0"
+                                    animate={playingMessageIndex === index ? { rotate: [0, 10, -10, 0] } : {}}
+                                    transition={{ duration: 0.5, repeat: playingMessageIndex === index ? Infinity : 0 }}
+                                  >
+                                    🦉
+                                  </motion.span>
+                                  <div className="flex-1">
+                                    <span className="text-sm leading-relaxed">{msg.text}</span>
+                                    {/* Replay Button */}
+                                    <motion.button
+                                      onClick={() => handleReplay(index, msg.text)}
+                                      className={`ml-2 p-1 rounded-full transition-all ${
+                                        playingMessageIndex === index 
+                                          ? 'bg-yellow-500/50 text-yellow-200' 
+                                          : 'bg-white/10 text-white/50 opacity-0 group-hover:opacity-100'
+                                      }`}
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                    >
+                                      {playingMessageIndex === index ? (
+                                        <div className="flex gap-0.5 items-center px-1">
+                                          {[1, 2, 3].map(i => (
+                                            <motion.div
+                                              key={i}
+                                              className="w-1 bg-current rounded-full"
+                                              animate={{ height: [4, 12, 4] }}
+                                              transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                                            />
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <Volume2 className="w-4 h-4" />
+                                      )}
+                                    </motion.button>
+                                  </div>
+                                </div>
                               )}
-                              <span className="text-sm leading-relaxed">{msg.text}</span>
+                              {msg.type === 'user' && <span className="text-sm leading-relaxed">{msg.text}</span>}
                               <p className="text-xs opacity-60 mt-1">
                                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </p>
@@ -1194,17 +1286,34 @@ export function EnhancedAICharacter({ article }: { article: ArticleData }) {
                     <div className="p-3 bg-purple-900/50 border-t border-purple-500/30 shrink-0">
                       <div className="flex gap-2">
                         <motion.button
-                          onClick={handleVoiceInput}
-                          className={`p-3 rounded-full transition-all ${
+                          onClick={handleMicClick}
+                          className={`p-3 rounded-full transition-all relative overflow-hidden ${
                             isListening 
-                              ? 'bg-red-600 animate-pulse' 
-                              : 'bg-purple-700/50 hover:bg-purple-600/50'
+                              ? 'bg-red-600 shadow-[0_0_20px_rgba(220,38,38,0.6)]' 
+                              : isProcessingVoice
+                                ? 'bg-yellow-600 shadow-[0_0_20px_rgba(202,138,4,0.6)]'
+                                : 'bg-purple-700/50 hover:bg-purple-600/50'
                           }`}
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          disabled={isListening}
+                          animate={isListening ? { scale: [1, 1.1, 1] } : {}}
+                          transition={isListening ? { duration: 1, repeat: Infinity } : { duration: 0.2 }}
                         >
-                          <Mic className="w-5 h-5 text-white" />
+                          {isProcessingVoice ? (
+                            <Loader className="w-5 h-5 text-white animate-spin" />
+                          ) : (
+                            <Mic className={`w-5 h-5 text-white ${isListening ? 'animate-pulse' : ''}`} />
+                          )}
+                          
+                          {/* Recording animation */}
+                          {isListening && (
+                            <motion.div
+                              className="absolute inset-0 bg-white/20"
+                              initial={{ y: '100%' }}
+                              animate={{ y: '0%' }}
+                              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                            />
+                          )}
                         </motion.button>
                         
                         <input

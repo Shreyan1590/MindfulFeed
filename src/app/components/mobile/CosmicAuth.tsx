@@ -1,18 +1,89 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router';
-import { Brain, Mail, Lock, Eye, EyeOff, Sparkles, Rocket, Zap, Star, User } from 'lucide-react';
+import { Brain, Mail, Lock, Eye, EyeOff, Sparkles, Rocket, Zap, Star, User, AlertTriangle, CheckCircle, X } from 'lucide-react';
+
+/**
+ * Maps raw technical error messages to user-friendly messages.
+ * This ensures users never see D1_ERROR, SQLITE_ERROR, etc.
+ */
+function getFriendlyErrorMessage(rawMessage: string, isLogin: boolean): string {
+  const msg = (rawMessage || '').toLowerCase();
+
+  // Database / column / schema errors
+  if (msg.includes('d1_error') || msg.includes('sqlite_error') || msg.includes('no such column') || msg.includes('no column named')) {
+    return isLogin
+      ? 'Invalid email or password. Please try again.'
+      : 'Unable to create account. Please try again later.';
+  }
+
+  // Network errors
+  if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('network')) {
+    return 'Unable to connect. Please check your internet connection and try again.';
+  }
+
+  // Duplicate user
+  if (msg.includes('already exists') || msg.includes('unique constraint')) {
+    return 'An account with this email already exists. Please log in instead.';
+  }
+
+  // Invalid credentials (already user-friendly from backend)
+  if (msg.includes('invalid email') || msg.includes('invalid password')) {
+    return 'Invalid email or password. Please try again.';
+  }
+
+  // Authentication failed
+  if (msg.includes('authentication failed')) {
+    return isLogin
+      ? 'Invalid email or password. Please try again.'
+      : 'Unable to create account. Please try again.';
+  }
+
+  // Timeout
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return 'The server took too long to respond. Please try again.';
+  }
+
+  // If the message is already user-friendly (no technical jargon), return it
+  if (!msg.includes('error') && !msg.includes('sql') && !msg.includes('d1') && !msg.includes('exception') && rawMessage.length < 100) {
+    return rawMessage;
+  }
+
+  // Default fallback
+  return isLogin
+    ? 'Unable to log in. Please check your credentials and try again.'
+    : 'Unable to create account. Please try again later.';
+}
 
 export function CosmicAuth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [stars, setStars] = useState<{ id: number; x: number; y: number; size: number; delay: number }[]>([]);
   const [planets, setPlanets] = useState<{ id: number; x: number; y: number; size: number; color: string }[]>([]);
   const navigate = useNavigate();
+
+  // Auto-dismiss error after 5 seconds
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
+
+  // Auto-dismiss success after 4 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(''), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   useEffect(() => {
     // Check if user is already logged in
@@ -45,20 +116,97 @@ export function CosmicAuth() {
     setPlanets(newPlanets);
   }, []);
 
+  // Clear messages when switching between login and signup
+  useEffect(() => {
+    setErrorMessage('');
+    setSuccessMessage('');
+    setConfirmPassword(''); // Clear confirm password on toggle
+  }, [isLogin]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
 
-    // Simulate API call
-    setTimeout(() => {
-      // Store persistent session
-      localStorage.setItem('mindfulfeed_userId', 'user_123');
-      localStorage.setItem('mindfulfeed_token', `token_${Math.random().toString(36).substr(2)}`);
-      localStorage.setItem('mindfulfeed_userName', fullName || 'Space Explorer');
-      
+    // Client-side validation for signup
+    if (!isLogin && password !== confirmPassword) {
+      setErrorMessage('Passwords do not match. Please try again.');
       setIsLoading(false);
-      navigate('/mobile/feed');
-    }, 2000);
+      return;
+    }
+
+    const sanitizedEmail = email.trim().toLowerCase();
+
+    try {
+      const endpoint = isLogin ? '/api/login' : '/api/register';
+      const payload = isLogin 
+        ? { email: sanitizedEmail, password } 
+        : { name: fullName.trim(), email: sanitizedEmail, password };
+
+      const res = await fetch(`https://mindfulfeed-worker.info-skillxpress.workers.dev${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+
+      if (isLogin) {
+        // Store persistent session
+        localStorage.setItem('mindfulfeed_userId', data.user.id);
+        localStorage.setItem('mindfulfeed_token', data.token);
+        localStorage.setItem('mindfulfeed_userName', data.user.name);
+        navigate('/mobile/feed');
+      } else {
+        // After registration, switch to login
+        setIsLogin(true);
+        setSuccessMessage('Account created successfully! Please log in.');
+      }
+    } catch (err: any) {
+      const rawMessage = err.message || 'Something went wrong';
+      setErrorMessage(getFriendlyErrorMessage(rawMessage, isLogin));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await fetch('https://mindfulfeed-worker.info-skillxpress.workers.dev/api/login-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Guest login failed');
+      }
+
+      // Store guest session
+      localStorage.setItem('mindfulfeed_userId', data.user.id);
+      localStorage.setItem('mindfulfeed_token', data.token);
+      localStorage.setItem('mindfulfeed_userName', data.user.name);
+      localStorage.setItem('mindfulfeed_isDemo', 'true');
+      
+      setSuccessMessage(`Welcome, ${data.user.name}!`);
+      setTimeout(() => {
+        navigate('/mobile/feed');
+      }, 500);
+    } catch (err: any) {
+      setErrorMessage('Unable to launch demo mode. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -287,6 +435,68 @@ export function CosmicAuth() {
               </button>
             </div>
 
+            {/* Error Toast */}
+            <AnimatePresence>
+              {errorMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  className="mb-6 bg-red-500/15 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm"
+                >
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center mt-0.5">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-red-300 text-sm font-semibold mb-0.5">
+                      {isLogin ? 'Login Failed' : 'Sign Up Failed'}
+                    </p>
+                    <p className="text-red-200/80 text-xs leading-relaxed">
+                      {errorMessage}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setErrorMessage('')}
+                    className="flex-shrink-0 text-red-400/60 hover:text-red-300 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Success Toast */}
+            <AnimatePresence>
+              {successMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  className="mb-6 bg-green-500/15 border border-green-500/30 rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm"
+                >
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center mt-0.5">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-green-300 text-sm font-semibold mb-0.5">
+                      Success
+                    </p>
+                    <p className="text-green-200/80 text-xs leading-relaxed">
+                      {successMessage}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSuccessMessage('')}
+                    className="flex-shrink-0 text-green-400/60 hover:text-green-300 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email */}
@@ -336,6 +546,30 @@ export function CosmicAuth() {
                   </button>
                 </div>
               </div>
+
+              {/* Confirm Password (Signup Only) */}
+              {!isLogin && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <label className="block text-white/80 text-sm font-semibold mb-2">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-white/20 rounded-2xl py-3 px-12 text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
+                </motion.div>
+              )}
 
               {/* Full Name */}
               {!isLogin && (
@@ -452,6 +686,18 @@ export function CosmicAuth() {
                   GitHub
                 </button>
               </div>
+            </div>
+
+            {/* Guest Access */}
+            <div className="mt-6">
+              <button
+                onClick={handleDemoLogin}
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-white/5 to-white/10 hover:from-white/10 hover:to-white/20 border border-white/10 rounded-2xl py-3 text-purple-200 font-semibold transition-all group disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4 text-purple-400 group-hover:scale-125 transition-transform" />
+                <span>Explore as Guest</span>
+              </button>
             </div>
           </motion.div>
 

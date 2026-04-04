@@ -110,6 +110,41 @@ export default {
         return await handleRAGChat(request, env, corsHeaders);
       }
 
+      // ============ USER & ANALYTICS API ============
+
+      // Create new post with AI Moderation
+      if (path === '/api/posts' && request.method === 'POST') {
+        return await handleCreatePost(request, env, corsHeaders);
+      }
+
+      // Get user profile
+      const userMatch = path.match(/^\/api\/user\/(.+)$/);
+      if (userMatch && request.method === 'GET') {
+        return await handleGetUser(userMatch[1], env, corsHeaders);
+      }
+
+      // Track interaction (XP & Attention)
+      if (path === '/api/interactions' && request.method === 'POST') {
+        return await handleTrackInteraction(request, env, corsHeaders);
+      }
+
+      // ============ AUTH API ============
+
+      // Login User
+      if (path === '/api/login' && request.method === 'POST') {
+        return await handleLogin(request, env, corsHeaders);
+      }
+
+      // Register User
+      if (path === '/api/register' && request.method === 'POST') {
+        return await handleRegister(request, env, corsHeaders);
+      }
+      
+      // Guest/Demo Login
+      if (path === '/api/login-demo' && (request.method === 'GET' || request.method === 'POST')) {
+        return await handleDemoLogin(request, env, corsHeaders);
+      }
+
       return new Response(JSON.stringify({ 
         error: 'Route not found', 
         path: path,
@@ -121,7 +156,7 @@ export default {
       });
     } catch (error) {
       console.error('Worker Error:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again later.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -482,47 +517,25 @@ async function handleRAGChat(request, env, corsHeaders) {
     console.time("INFERENCE");
     const inferenceStart = Date.now();
     
-    const systemPrompt = `You are an intelligent AI assistant designed for a hybrid conversational system that combines:
-* RAG (article-based knowledge)
-* Conversational interaction
-* User memory (personalization)
-
-Your role is to balance knowledge accuracy with natural conversation.
+    const systemPrompt = `You are Buddy, a hybrid AI assistant for MindfulFeed. 
+Identity: Created by Dhilip K.
+Goal: Balance article knowledge (RAG), conversational warmth, and user memory.
 
 ---
-🧠 CORE BEHAVIOR (OPERATE IN THREE MODES):
-
-1. CONVERSATIONAL MODE (casual interaction)
-   - If greeting, personal talk, or simple chat: Response naturally and friendly.
-   - Use user's name if available (e.g. "Hey Shreyan! 👋").
-
-2. ARTICLE-AWARE MODE (RAG)
-   - If question is article-related: Use CONTEXT as primary source.
-   - Answer clearly, simplify explanations.
-   - Avoid guessing or hallucinating unknown parts.
-
-3. HYBRID MODE
-   - If mixing casual + article: Start conversational, then provide the answer.
-   - Example: "Good question! Based on the article, AI is mainly used for..."
+🌍 MULTILINGUAL (Auto-detect):
+- Detect input language & reply natively in the same (English, Tamil, Hindi, Spanish, French).
+- Tone: "Got it! Here is the info..." / "சரி! இதோ விளக்கம்..." / "¡Entendido! Aquí tienes..."
 
 ---
-🧠 MEMORY & CONTEXT PRIORITY:
-1. User-provided information (highest priority - e.g. "My name is Shreyan")
-2. Article context (provided below)
-3. General knowledge (limited use, only if needed for clarity)
-
----
-🚫 STRICT RULES:
-- Do NOT behave like a strict robot.
-- Do NOT say "not available" unnecessarily if you can help explain or bridge the gap.
-- Do NOT ignore user tone.
-- Do NOT add filler greetings repeatedly.
+🧠 BEHAVIOR:
+1. Be friendly/personal. Use name if known (e.g. "Hey Shreyan!").
+2. Article-Aware: Use CONTEXT carefully. Simplify facts. Don't guess.
+Priority: 1. User Info > 2. Article Context > 3. General Knowledge.
+Style: Clear, concise, friendly.
 
 ---
 CONTEXT:
-${context}
----
-ANSWER STYLE: Friendly but intelligent, clear, structured, not too long.`;
+${context}`;
 
     // Construct message history for LLM
     const chatMessages = [
@@ -537,10 +550,10 @@ ANSWER STYLE: Friendly but intelligent, clear, structured, not too long.`;
     // Finally add the current user input as the last message
     chatMessages.push({ role: 'user', content: question });
 
-    const aiRes = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const aiRes = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
       messages: chatMessages,
-      max_tokens: 450, // Slightly more room for hybrid responses
-      temperature: 0.7 // Better for conversational flow
+      max_tokens: 300,
+      temperature: 0.6
     });
     
     const inferenceTime = Date.now() - inferenceStart;
@@ -600,4 +613,237 @@ function cosineSimilarity(vecA, vecB) {
   }
   if (normA === 0 || normB === 0) return 0;
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * Get User Profile
+ */
+async function handleGetUser(userId, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const user = await env.MINDFULFEED_DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "User not found" }), { status: 404, headers: jsonHeaders });
+    }
+    return new Response(JSON.stringify(user), { status: 200, headers: jsonHeaders });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+/**
+ * Handle new post creation with AI Moderation & Embeddings
+ */
+async function handleCreatePost(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const payload = await request.json();
+    const { userId, title, caption, content, category, tags = [], imageUrl } = payload;
+
+    if (!userId || !title || !content) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: jsonHeaders });
+    }
+
+    const db = env.MINDFULFEED_DB;
+
+    // 1. Fetch User Data
+    const user = await db.prepare('SELECT name, level FROM users WHERE id = ?').bind(userId).first();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "User not found" }), { status: 404, headers: jsonHeaders });
+    }
+
+    // 2. AI Content Moderation
+    const moderationPrompt = `Analyze this article for "MindfulFeed" (a productivity social app).
+Goal: Only allow meaningful, educational, and safe content. Reject spam/low-quality.
+
+Article:
+Title: ${title}
+Body: ${content}
+
+Respond strictly with JSON:
+{
+  "allowed": true/false,
+  "quality": "productive" | "neutral" | "low-value",
+  "score": 0.0-1.0,
+  "feedback": "...",
+  "suggestions": []
+}`;
+
+    const modRes = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [{ role: 'system', content: "You are a content quality expert." }, { role: 'user', content: moderationPrompt }],
+      response_format: { type: 'json_object' }
+    });
+
+    const analysis = JSON.parse(modRes.response);
+    if (!analysis.allowed) {
+      return new Response(JSON.stringify({ error: "AI Moderation Rejected", analysis }), { status: 400, headers: jsonHeaders });
+    }
+
+    // 3. Save Post
+    const postId = `post_${Date.now()}`;
+    await db.prepare(`
+      INSERT INTO posts (id, title, caption, content, category, tags, image_url, author_id, author_name, author_level, content_quality, attention_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      postId, title, caption, content, category, JSON.stringify(tags), imageUrl, 
+      userId, user.name, user.level, analysis.quality, analysis.score
+    ).run();
+
+    // 4. Generate Embeddings (for RAG)
+    const chunks = chunkText(content, 300, 50);
+    const embeddingsRes = await env.AI.run('@cf/baai/bge-small-en-v1.5', { text: chunks });
+    const embeddings = embeddingsRes.data;
+
+    const embedBatch = chunks.map((chunk, i) => 
+      db.prepare('INSERT INTO post_embeddings (post_id, chunk_text, embedding_vector) VALUES (?, ?, ?)')
+        .bind(postId, chunk, JSON.stringify(embeddings[i]))
+    );
+    await db.batch(embedBatch);
+
+    return new Response(JSON.stringify({ success: true, postId, analysis }), { status: 201, headers: jsonHeaders });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+/**
+ * Track Interaction (Engagement, XP, Attention)
+ */
+async function handleTrackInteraction(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const { userId, postId, timeSpent, scrollDepth } = await request.json();
+    const db = env.MINDFULFEED_DB;
+
+    // Calculate XP
+    let xpEarned = 0;
+    if (timeSpent >= 30) xpEarned = 10;
+    else if (timeSpent >= 10) xpEarned = 5;
+    else if (timeSpent >= 5) xpEarned = 2;
+
+    if (scrollDepth >= 0.9) xpEarned += 5; // Bonus for full read
+
+    // 1. Log Interaction
+    await db.prepare(`
+      INSERT INTO interactions (user_id, post_id, time_spent, xp_earned, scroll_depth)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(userId, postId, timeSpent, xpEarned, scrollDepth).run();
+
+    // 2. Update User XP & Level
+    const userRes = await db.prepare('SELECT xp, level FROM users WHERE id = ?').bind(userId).first();
+    let newXp = (userRes.xp || 0) + xpEarned;
+    let newLevel = Math.floor(newXp / 100) + 1;
+
+    await db.prepare('UPDATE users SET xp = ?, level = ? WHERE id = ?')
+      .bind(newXp, newLevel, userId).run();
+
+    // 3. Update Post Analytics
+    await db.prepare('UPDATE posts SET views_count = views_count + 1, total_watch_time = total_watch_time + ? WHERE id = ?')
+      .bind(timeSpent, postId).run();
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      xp_earned: xpEarned, 
+      new_xp: newXp,
+      new_level: newLevel 
+    }), { status: 200, headers: jsonHeaders });
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+/**
+ * Handle User Login
+ */
+async function handleLogin(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const { email, password } = await request.json();
+    const sanitizedEmail = (email || '').trim().toLowerCase();
+    const db = env.MINDFULFEED_DB;
+
+    const user = await db.prepare('SELECT id, name, email, xp, level FROM users WHERE email = ? AND password = ?')
+      .bind(sanitizedEmail, password).first();
+
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Invalid email or password" }), { status: 401, headers: jsonHeaders });
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        xp: user.xp,
+        level: user.level
+      },
+      token: `token_${Math.random().toString(36).substring(2)}` 
+    }), { status: 200, headers: jsonHeaders });
+  } catch (error) {
+    console.error('[Auth] Login error:', error.message);
+    // Return user-friendly message, never expose raw DB errors
+    return new Response(JSON.stringify({ error: 'Unable to log in. Please check your email and password and try again.' }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+/**
+ * Handle User Registration
+ */
+async function handleRegister(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  try {
+    const { name, email, password } = await request.json();
+    const sanitizedEmail = (email || '').trim().toLowerCase();
+    const sanitizedName = (name || '').trim();
+    const db = env.MINDFULFEED_DB;
+
+    // Check if user exists
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').bind(sanitizedEmail).first();
+    if (existing) {
+      return new Response(JSON.stringify({ error: "An account with this email already exists. Please log in instead." }), { status: 400, headers: jsonHeaders });
+    }
+
+    const userId = `user_${Date.now()}`;
+    await db.prepare('INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)')
+      .bind(userId, sanitizedName, sanitizedEmail, password).run();
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      userId,
+      message: "User created successfully" 
+    }), { status: 201, headers: jsonHeaders });
+  } catch (error) {
+    console.error('[Auth] Register error:', error.message);
+    // Return user-friendly message, never expose raw DB errors
+    let friendlyMessage = 'Unable to create account. Please try again later.';
+    if (error.message && error.message.includes('UNIQUE constraint')) {
+      friendlyMessage = 'An account with this email already exists. Please log in instead.';
+    }
+    return new Response(JSON.stringify({ error: friendlyMessage }), { status: 500, headers: jsonHeaders });
+  }
+}
+
+/**
+ * Handle Demo/Guest Login
+ */
+async function handleDemoLogin(request, env, corsHeaders) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  
+  // Return a simulated high-tier guest user
+  const demoUser = {
+    id: `demo_${Math.random().toString(36).substring(2, 9)}`,
+    name: 'Cosmic Explorer (Guest)',
+    email: 'guest@mindfulfeed.app',
+    xp: 420,
+    level: 5
+  };
+
+  return new Response(JSON.stringify({ 
+    success: true, 
+    user: demoUser,
+    token: `demo_token_${Math.random().toString(36).substring(2)}`,
+    isDemo: true 
+  }), { status: 200, headers: jsonHeaders });
 }

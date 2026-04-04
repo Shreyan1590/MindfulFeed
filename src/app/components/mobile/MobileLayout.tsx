@@ -143,7 +143,10 @@ export function MobileLayout() {
                     <span className="font-semibold">Settings</span>
                   </button>
                   <button
-                    onClick={() => navigate('/auth')}
+                    onClick={() => {
+                      localStorage.clear();
+                      navigate('/');
+                    }}
                     className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all"
                   >
                     <LogOut className="w-5 h-5" />

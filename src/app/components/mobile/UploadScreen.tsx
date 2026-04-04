@@ -21,6 +21,9 @@ interface AIAnalysis {
 }
 
 export function UploadScreen() {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tags, setTags] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -29,52 +32,52 @@ export function UploadScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleImageSelect = () => {
-    // Simulate image selection
-    setSelectedImage('https://images.unsplash.com/photo-1764192114257-ae9ecf97eb6f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080');
+  const handleAnalysis = async () => {
+    if (!title || !content || !selectedCategory) return;
     
-    // Trigger AI analysis
     setIsAnalyzing(true);
-    setTimeout(() => {
-      setAiAnalysis({
-        quality: 'productive',
-        score: 0.92,
-        feedback: 'Great content! This image promotes mindfulness and wellness.',
-        suggestions: [
-          'Consider adding more context in your caption',
-          'Include actionable tips for readers',
-        ],
+    setError(null);
+    try {
+      const response = await fetch('https://mindfulfeed-worker.info-skillxpress.workers.dev/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'user_dhilip_k', // Hardcoded for demo/profile integration
+          title,
+          content,
+          caption,
+          category: selectedCategory,
+          tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+          imageUrl: selectedImage || ''
+        })
       });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'AI Moderation failed');
+      
+      setAiAnalysis(result.analysis);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
-  const handleUpload = () => {
-    if (!selectedImage || !caption || !selectedCategory) return;
-
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          setUploadSuccess(true);
-          setTimeout(() => {
-            setUploadSuccess(false);
-            setSelectedImage(null);
-            setCaption('');
-            setSelectedCategory('');
-            setAiAnalysis(null);
-          }, 2000);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
+  const handleUpload = async () => {
+    if (!aiAnalysis || aiAnalysis.quality === 'harmful') return;
+    setUploadSuccess(true);
+    setTimeout(() => {
+      setUploadSuccess(false);
+      setTitle('');
+      setContent('');
+      setCaption('');
+      setSelectedCategory('');
+      setTags('');
+      setSelectedImage(null);
+      setAiAnalysis(null);
+    }, 3000);
   };
 
   const getQualityColor = (quality: string) => {
@@ -101,54 +104,108 @@ export function UploadScreen() {
           <p className="text-gray-600">Share meaningful content with the community</p>
         </div>
 
-        {/* Image Selection */}
+        {/* Title */}
         <div className="mb-6">
-          <label className="block text-gray-900 font-semibold mb-3">Media</label>
-          {!selectedImage ? (
-            <button
-              onClick={handleImageSelect}
-              className="w-full h-64 border-2 border-dashed border-gray-300 rounded-3xl flex flex-col items-center justify-center hover:border-[#6C63FF] transition-all bg-gray-50"
-            >
-              <ImageIcon className="w-12 h-12 text-gray-400 mb-3" />
-              <span className="text-gray-600 font-medium">Select from Gallery</span>
-            </button>
-          ) : (
-            <div className="relative">
-              <img
-                src={selectedImage}
-                alt="Selected"
-                className="w-full h-64 object-cover rounded-3xl"
-              />
+          <label className="block text-gray-900 font-semibold mb-3">Article Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Enter a compelling title..."
+            className="w-full bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all"
+          />
+        </div>
+
+        {/* Full Content */}
+        <div className="mb-6">
+          <label className="block text-gray-900 font-semibold mb-3">Article Content (Markdown)</label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Write your insightful article here..."
+            className="w-full h-64 bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all resize-none"
+          />
+        </div>
+
+        {/* Media / Graphics */}
+        <div className="mb-6">
+          <label className="block text-gray-900 font-semibold mb-3">Cover Image URL (Optional)</label>
+          <input
+            type="text"
+            value={selectedImage || ''}
+            onChange={(e) => setSelectedImage(e.target.value)}
+            placeholder="https://images.unsplash.com/..."
+            className="w-full bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all"
+          />
+        </div>
+
+        {/* Category Selector */}
+        <div className="mb-6">
+          <label className="block text-gray-900 font-semibold mb-3">Category</label>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
               <button
-                onClick={() => {
-                  setSelectedImage(null);
-                  setAiAnalysis(null);
-                }}
-                className="absolute top-3 right-3 w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center"
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-4 py-2 rounded-full font-semibold transition-all ${
+                  selectedCategory === category
+                    ? 'bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <X className="w-5 h-5 text-white" />
+                {category}
               </button>
-              
-              {/* AI Analysis Overlay */}
-              {isAnalyzing && (
-                <motion.div
-                  className="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-3xl flex items-center justify-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <div className="text-center">
-                    <motion.div
-                      className="w-16 h-16 border-4 border-white border-t-transparent rounded-full mx-auto mb-3"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    />
-                    <p className="text-white font-semibold">Analyzing content...</p>
-                  </div>
-                </motion.div>
-              )}
+            ))}
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div className="mb-8">
+          <label className="block text-gray-900 font-semibold mb-3">Tags (comma separated)</label>
+          <input
+            type="text"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="mindfulness, AI, productivity..."
+            className="w-full bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all"
+          />
+        </div>
+
+        {/* Analyze Content Button */}
+        <motion.button
+          onClick={handleAnalysis}
+          disabled={!title || !content || !selectedCategory || isAnalyzing}
+          className={`w-full py-4 rounded-2xl font-bold text-lg mb-6 transition-all ${
+            title && content && selectedCategory && !isAnalyzing
+              ? 'bg-[#EAB308] text-white shadow-lg shadow-yellow-200/50'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+          whileTap={title && content && selectedCategory && !isAnalyzing ? { scale: 0.98 } : {}}
+        >
+          {isAnalyzing ? (
+            <div className="flex items-center justify-center gap-3">
+              <motion.div
+                className="w-5 h-5 border-3 border-white border-t-transparent rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              />
+              <span>Smart Analysis...</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              <span>Analyze Quality</span>
             </div>
           )}
-        </div>
+        </motion.button>
+
+        {/* Error State */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
 
         {/* AI Analysis Results */}
         <AnimatePresence>

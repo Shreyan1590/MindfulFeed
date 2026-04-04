@@ -93,8 +93,11 @@ export function PostDetailScreen() {
     setTimeout(handleToggleAudio, 100);
   };
 
+  // Analytics & Scroll Tracking
   useEffect(() => {
-    // Track scroll progress
+    const startTime = Date.now();
+    let maxScroll = 0;
+
     const handleScroll = () => {
       const scrollElement = document.getElementById('post-content');
       if (scrollElement) {
@@ -102,13 +105,33 @@ export function PostDetailScreen() {
         const scrollHeight = scrollElement.scrollHeight - scrollElement.clientHeight;
         const progress = (scrollTop / scrollHeight) * 100;
         setReadProgress(Math.min(progress, 100));
+        if (progress / 100 > maxScroll) maxScroll = progress / 100;
       }
     };
 
     const scrollElement = document.getElementById('post-content');
     scrollElement?.addEventListener('scroll', handleScroll);
-    return () => scrollElement?.removeEventListener('scroll', handleScroll);
-  }, []);
+
+    return () => {
+      scrollElement?.removeEventListener('scroll', handleScroll);
+      const endTime = Date.now();
+      const timeSpent = Math.floor((endTime - startTime) / 1000);
+
+      if (postId && timeSpent > 2) {
+        fetch('https://mindfulfeed-worker.info-skillxpress.workers.dev/api/interactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: 'user_dhilip_k',
+            postId,
+            timeSpent,
+            scrollDepth: maxScroll
+          }),
+          keepalive: true
+        }).catch(err => console.error('Analytics failed:', err));
+      }
+    };
+  }, [postId]);
 
   if (!post) {
     return (
@@ -376,7 +399,7 @@ export function PostDetailScreen() {
           onClick={() => {
             document.getElementById('post-content')?.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] rounded-full shadow-2xl flex items-center justify-center z-40"
+          className="fixed bottom-24 left-6 w-14 h-14 bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] rounded-full shadow-2xl flex items-center justify-center z-40"
           initial={{ opacity: 0, scale: 0 }}
           animate={{ opacity: 1, scale: 1 }}
           whileTap={{ scale: 0.9 }}
