@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Upload, Image as ImageIcon, Check, X, Sparkles, AlertCircle } from 'lucide-react';
 import { formatErrorCode } from '../../utils/errorCodes';
 import { apiUrl, getStoredSession } from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const categories = [
   'Wellness',
@@ -23,6 +24,7 @@ interface AIAnalysis {
 }
 
 export function UploadScreen() {
+  const { isDarkMode } = useTheme();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
@@ -141,52 +143,78 @@ export function UploadScreen() {
   };
 
   return (
-    <div className="h-full bg-white overflow-y-auto">
+    <div className={`h-full overflow-y-auto transition-colors ${
+      isDarkMode ? 'bg-gray-900' : 'bg-white'
+    }`}>
       <div className="p-6 pb-24">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Content</h1>
-          <p className="text-gray-600">Share meaningful content with the community</p>
+          <h1 className={`text-3xl font-bold mb-2 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Upload Content
+          </h1>
+          <p className={`transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Share meaningful content with the community
+          </p>
         </div>
 
         {/* Title */}
         <div className="mb-6">
-          <label className="block text-gray-900 font-semibold mb-3">Article Title</label>
+          <label className={`block font-semibold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Article Title
+          </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Enter a compelling title..."
-            className="w-full bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all"
+            className={`w-full border-2 rounded-2xl px-4 py-3 outline-none focus:border-[#6C63FF] transition-all ${
+              isDarkMode
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                : 'bg-white border-gray-200 text-gray-900'
+            }`}
           />
         </div>
 
         {/* Full Content */}
         <div className="mb-6">
-          <label className="block text-gray-900 font-semibold mb-3">Article Content (Markdown)</label>
+          <label className={`block font-semibold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Article Content (Markdown)
+          </label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Write your insightful article here..."
-            className="w-full h-64 bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all resize-none"
+            className={`w-full h-64 border-2 rounded-2xl px-4 py-3 outline-none focus:border-[#6C63FF] transition-all resize-none ${
+              isDarkMode
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                : 'bg-white border-gray-200 text-gray-900'
+            }`}
           />
         </div>
 
         {/* Media / Graphics */}
         <div className="mb-6">
-          <label className="block text-gray-900 font-semibold mb-3">Cover Image URL (Optional)</label>
+          <label className={`block font-semibold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Cover Image URL (Optional)
+          </label>
           <input
             type="text"
             value={selectedImage || ''}
             onChange={(e) => setSelectedImage(e.target.value)}
             placeholder="https://images.unsplash.com/..."
-            className="w-full bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all"
+            className={`w-full border-2 rounded-2xl px-4 py-3 outline-none focus:border-[#6C63FF] transition-all ${
+              isDarkMode
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                : 'bg-white border-gray-200 text-gray-900'
+            }`}
           />
         </div>
 
         {/* Category Selector */}
         <div className="mb-6">
-          <label className="block text-gray-900 font-semibold mb-3">Category</label>
+          <label className={`block font-semibold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Category
+          </label>
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
               <button
@@ -195,7 +223,9 @@ export function UploadScreen() {
                 className={`px-4 py-2 rounded-full font-semibold transition-all ${
                   selectedCategory === category
                     ? 'bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : isDarkMode
+                      ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
                 {category}
@@ -206,13 +236,19 @@ export function UploadScreen() {
 
         {/* Tags */}
         <div className="mb-8">
-          <label className="block text-gray-900 font-semibold mb-3">Tags (comma separated)</label>
+          <label className={`block font-semibold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Tags (comma separated)
+          </label>
           <input
             type="text"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="mindfulness, AI, productivity..."
-            className="w-full bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all"
+            className={`w-full border-2 rounded-2xl px-4 py-3 outline-none focus:border-[#6C63FF] transition-all ${
+              isDarkMode
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                : 'bg-white border-gray-200 text-gray-900'
+            }`}
           />
         </div>
 
@@ -223,7 +259,9 @@ export function UploadScreen() {
           className={`w-full py-4 rounded-2xl font-bold text-lg mb-6 transition-all ${
             title && content && selectedCategory && !isAnalyzing
               ? 'bg-[#EAB308] text-white shadow-lg shadow-yellow-200/50'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : isDarkMode
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
           whileTap={title && content && selectedCategory && !isAnalyzing ? { scale: 0.98 } : {}}
         >
@@ -246,7 +284,11 @@ export function UploadScreen() {
 
         {/* Error State */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+          <div className={`mb-6 p-4 border rounded-2xl flex items-center gap-3 ${
+            isDarkMode
+              ? 'bg-red-900/20 border-red-800 text-red-400'
+              : 'bg-red-50 border-red-100 text-red-600'
+          }`}>
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm font-medium">{error}</p>
           </div>
@@ -301,15 +343,23 @@ export function UploadScreen() {
 
         {/* Caption */}
         <div className="mb-6">
-          <label className="block text-gray-900 font-semibold mb-3">Caption</label>
+          <label className={`block font-semibold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Caption
+          </label>
           <textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Write a meaningful caption..."
-            className="w-full h-32 bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 outline-none focus:border-[#6C63FF] transition-all resize-none"
+            className={`w-full h-32 border-2 rounded-2xl px-4 py-3 outline-none focus:border-[#6C63FF] transition-all resize-none ${
+              isDarkMode
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                : 'bg-white border-gray-200 text-gray-900'
+            }`}
           />
           <div className="flex items-center justify-between mt-2">
-            <span className="text-sm text-gray-500">{caption.length} / 500</span>
+            <span className={`text-sm transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              {caption.length} / 500
+            </span>
             {caption.length > 0 && caption.length < 20 && (
               <div className="flex items-center gap-1 text-[#FF6B6B] text-sm">
                 <AlertCircle className="w-4 h-4" />
@@ -321,7 +371,9 @@ export function UploadScreen() {
 
         {/* Category Selector */}
         <div className="mb-8">
-          <label className="block text-gray-900 font-semibold mb-3">Category</label>
+          <label className={`block font-semibold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Category
+          </label>
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
               <button
@@ -330,7 +382,9 @@ export function UploadScreen() {
                 className={`px-4 py-2 rounded-full font-semibold transition-all ${
                   selectedCategory === category
                     ? 'bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : isDarkMode
+                      ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
                 {category}
@@ -353,7 +407,9 @@ export function UploadScreen() {
           className={`w-full py-4 rounded-2xl font-bold text-lg transition-all ${
             selectedImage && caption && caption.length >= 20 && selectedCategory && aiAnalysis && !isUploading
               ? 'bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] text-white'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : isDarkMode
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
           whileTap={
             selectedImage && caption && caption.length >= 20 && selectedCategory && aiAnalysis && !isUploading
@@ -381,7 +437,9 @@ export function UploadScreen() {
         {/* Upload Progress Bar */}
         {isUploading && (
           <motion.div
-            className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden"
+            className={`mt-4 h-2 rounded-full overflow-hidden transition-colors ${
+              isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+            }`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
@@ -405,7 +463,9 @@ export function UploadScreen() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-white rounded-3xl p-8 flex flex-col items-center max-w-sm mx-6"
+              className={`rounded-3xl p-8 flex flex-col items-center max-w-sm mx-6 transition-colors ${
+                isDarkMode ? 'bg-gray-900' : 'bg-white'
+              }`}
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.5, opacity: 0 }}
@@ -419,8 +479,12 @@ export function UploadScreen() {
               >
                 <Check className="w-10 h-10 text-white" strokeWidth={3} />
               </motion.div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Successful!</h2>
-              <p className="text-gray-600 text-center mb-4">Your content has been shared</p>
+              <h2 className={`text-2xl font-bold mb-2 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Upload Successful!
+              </h2>
+              <p className={`text-center mb-4 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Your content has been shared
+              </p>
               {aiAnalysis && (
                 <div className="bg-[#51CF66]/10 rounded-2xl p-4 w-full">
                   <p className="text-center text-[#51CF66] font-bold">

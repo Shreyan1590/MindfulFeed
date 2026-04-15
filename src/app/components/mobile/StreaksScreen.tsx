@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import { Flame, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const calendar = [
   { day: 'Mon', date: 27, active: true },
@@ -34,16 +35,23 @@ const milestones = [
 ];
 
 export function StreaksScreen() {
+  const { isDarkMode } = useTheme();
   const currentStreak = 14;
   const longestStreak = 21;
 
   return (
-    <div className="h-full bg-gradient-to-b from-white to-gray-50 overflow-y-auto">
+    <div className={`h-full overflow-y-auto transition-colors ${
+      isDarkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-white to-gray-50'
+    }`}>
       <div className="p-6 pb-24">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Streak</h1>
-          <p className="text-gray-600">Keep your momentum going!</p>
+          <h1 className={`text-3xl font-bold mb-2 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Streak
+          </h1>
+          <p className={`transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Keep your momentum going!
+          </p>
         </div>
 
         {/* Current Streak Card */}

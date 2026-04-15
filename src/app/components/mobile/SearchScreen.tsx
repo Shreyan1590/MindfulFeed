@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Search, TrendingUp, Sparkles, Heart, Brain, Dumbbell, Globe, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const categories = [
   { name: 'Wellness', icon: Heart, color: 'from-[#FF6B6B] to-[#FF8E53]', posts: 1247 },
@@ -27,6 +28,7 @@ const recentSearches = [
 ];
 
 export function SearchScreen() {
+  const { isDarkMode } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
@@ -50,25 +52,35 @@ export function SearchScreen() {
   };
 
   return (
-    <div className="h-full bg-gradient-to-b from-white to-gray-50 overflow-y-auto">
+    <div className={`h-full overflow-y-auto transition-colors ${
+      isDarkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-white to-gray-50'
+    }`}>
       <div className="p-6 pb-24">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Discover</h1>
-          <p className="text-gray-600">Find meaningful content</p>
+          <h1 className={`text-3xl font-bold mb-2 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Discover
+          </h1>
+          <p className={`transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Find meaningful content
+          </p>
         </div>
 
         {/* Search Bar */}
         <div className="relative mb-6">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
-            <Search className="w-5 h-5 text-gray-400" />
+            <Search className={`w-5 h-5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search for topics, categories..."
-            className="w-full bg-white border-2 border-gray-200 rounded-2xl pl-12 pr-4 py-4 text-gray-900 outline-none focus:border-[#6C63FF] transition-all"
+            className={`w-full border-2 rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-[#6C63FF] transition-all ${
+              isDarkMode
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                : 'bg-white border-gray-200 text-gray-900'
+            }`}
           />
           {searchQuery && (
             <button
@@ -77,7 +89,7 @@ export function SearchScreen() {
               }}
               className="absolute right-4 top-1/2 -translate-y-1/2"
             >
-              <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+              <X className={`w-5 h-5 ${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`} />
             </button>
           )}
         </div>
@@ -91,14 +103,20 @@ export function SearchScreen() {
           >
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="w-5 h-5 text-[#6C63FF]" />
-              <h2 className="text-lg font-bold text-gray-900">Trending Now</h2>
+              <h2 className={`text-lg font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Trending Now
+              </h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {trending.map((term, index) => (
                 <motion.button
                   key={index}
                   onClick={() => handleTrendingClick(term)}
-                  className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-semibold text-gray-700 hover:border-[#6C63FF] hover:text-[#6C63FF] transition-all"
+                  className={`px-4 py-2 border rounded-full text-sm font-semibold transition-all ${
+                    isDarkMode
+                      ? 'bg-gray-800 border-gray-700 text-gray-300 hover:border-[#6C63FF] hover:text-[#6C63FF]'
+                      : 'bg-white border-gray-200 text-gray-700 hover:border-[#6C63FF] hover:text-[#6C63FF]'
+                  }`}
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.05 }}
@@ -119,20 +137,26 @@ export function SearchScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <h2 className="text-lg font-bold text-gray-900 mb-3">Recent Searches</h2>
+            <h2 className={`text-lg font-bold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Recent Searches
+            </h2>
             <div className="space-y-2">
               {recentSearches.map((term, index) => (
                 <motion.button
                   key={index}
                   onClick={() => handleRecentSearchClick(term)}
-                  className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl hover:bg-gray-50 transition-all text-left"
+                  className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-left ${
+                    isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'
+                  }`}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 + index * 0.05 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <Search className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-700 font-medium">{term}</span>
+                  <Search className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <span className={`font-medium transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {term}
+                  </span>
                 </motion.button>
               ))}
             </div>
@@ -145,7 +169,9 @@ export function SearchScreen() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: searchQuery ? 0 : 0.2 }}
         >
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Browse Categories</h2>
+          <h2 className={`text-lg font-bold mb-4 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Browse Categories
+          </h2>
           <div className="grid grid-cols-2 gap-4">
             {categories.map((category, index) => {
               const Icon = category.icon;

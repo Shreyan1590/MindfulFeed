@@ -11,6 +11,7 @@ import {
   Heart,
   TrendingUp,
 } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // @ts-ignore - canvas-confetti has no types installed
 import confetti from 'canvas-confetti';
@@ -77,6 +78,7 @@ const badges: Badge[] = [
 ];
 
 export function GamificationScreen() {
+  const { isDarkMode } = useTheme();
   const [currentXP, setCurrentXP] = useState(2480);
   const [currentLevel, setCurrentLevel] = useState(8);
   const [xpToNextLevel] = useState(520);
@@ -96,12 +98,18 @@ export function GamificationScreen() {
   };
 
   return (
-    <div className="h-full bg-gradient-to-b from-white to-gray-50 overflow-hidden flex flex-col">
+    <div className={`h-full overflow-hidden flex flex-col transition-colors ${
+      isDarkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-white to-gray-50'
+    }`}>
       <div className="p-3 flex flex-col h-full min-h-0">
         {/* Header */}
         <div className="mb-2">
-          <h1 className="text-xl font-bold text-gray-900 leading-tight">Gamification</h1>
-          <p className="text-gray-600 text-xs">Level up your mindful journey</p>
+          <h1 className={`text-xl font-bold leading-tight transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Gamification
+          </h1>
+          <p className={`text-xs transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Level up your mindful journey
+          </p>
         </div>
 
         {/* Level Card */}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, TrendingUp, Heart, Bookmark, Clock } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface SearchPost {
   id: number;
@@ -109,6 +110,7 @@ const allPosts: SearchPost[] = [
 export function SearchResultsScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isDarkMode } = useTheme();
   const query = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
   const [filteredPosts, setFilteredPosts] = useState<SearchPost[]>([]);
@@ -144,21 +146,25 @@ export function SearchResultsScreen() {
   }, [query, category]);
 
   return (
-    <div className="h-full bg-white overflow-y-auto">
+    <div className={`h-full overflow-y-auto transition-colors ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
       {/* Header */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 z-10">
+      <div className={`sticky top-0 backdrop-blur-md z-10 transition-colors ${
+        isDarkMode ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-gray-200'
+      }`}>
         <div className="flex items-center gap-4 p-4">
           <button
             onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-all"
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+              isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'
+            }`}
           >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
+            <ArrowLeft className={`w-5 h-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
           </button>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-gray-900">
+            <h1 className={`text-lg font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {category ? `${category} Posts` : query ? `Search: "${query}"` : 'All Posts'}
             </h1>
-            <p className="text-sm text-gray-600">
+            <p className={`text-sm transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               {isLoading ? 'Searching...' : `${filteredPosts.length} results found`}
             </p>
           </div>

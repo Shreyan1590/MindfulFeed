@@ -19,6 +19,7 @@ import {
   RotateCcw,
   AlertTriangle,
 } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 import { EnhancedAICharacter } from './EnhancedAICharacter';
 import { aiTranslationService, ArticleAnalysis } from '../../services/AITranslationService';
 import { ttsService } from '../../services/TextToSpeechService';
@@ -29,6 +30,7 @@ import { apiUrl, getStoredSession } from '../../services/api';
 export function PostDetailScreen() {
   const { postId } = useParams();
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
   const [post, setPost] = useState<PostDetail | null>(null);
   const [isLoadingPost, setIsLoadingPost] = useState(true);
   const [liked, setLiked] = useState(false);
@@ -161,7 +163,7 @@ export function PostDetailScreen() {
   };
 
   return (
-    <div className="relative h-full bg-white">
+    <div className={`relative h-full transition-colors ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
       {/* Error Toast */}
       <AnimatePresence>
         {errorMessage && (

@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { TrendingUp, Clock, Eye, Zap, RefreshCw } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { useState } from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const usageData = [
   { day: 'Mon', minutes: 25 },
@@ -20,6 +21,7 @@ const qualityBreakdown = [
 ];
 
 export function DashboardScreen() {
+  const { isDarkMode } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [hasData, setHasData] = useState(true);
   const attentionScore = 0.85;
@@ -34,14 +36,18 @@ export function DashboardScreen() {
   // Loading State
   if (isLoading) {
     return (
-      <div className="h-full bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
+      <div className={`h-full flex items-center justify-center transition-colors ${
+        isDarkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-white to-gray-50'
+      }`}>
         <div className="text-center">
           <motion.div
             className="w-16 h-16 border-4 border-[#6C63FF] border-t-transparent rounded-full mx-auto mb-4"
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           />
-          <p className="text-gray-600 font-semibold">Loading your data...</p>
+          <p className={`font-semibold transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Loading your data...
+          </p>
         </div>
       </div>
     );
@@ -50,13 +56,19 @@ export function DashboardScreen() {
   // Empty State
   if (!hasData) {
     return (
-      <div className="h-full bg-gradient-to-b from-white to-gray-50 flex items-center justify-center p-6">
+      <div className={`h-full flex items-center justify-center p-6 transition-colors ${
+        isDarkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-white to-gray-50'
+      }`}>
         <div className="text-center max-w-sm">
-          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <TrendingUp className="w-12 h-12 text-gray-400" />
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 transition-colors ${
+            isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+          }`}>
+            <TrendingUp className={`w-12 h-12 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">No Data Yet</h2>
-          <p className="text-gray-600 mb-6">
+          <h2 className={`text-2xl font-bold mb-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            No Data Yet
+          </h2>
+          <p className={`mb-6 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             Start consuming content to see your analytics and insights here.
           </p>
           <button className="bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] text-white px-6 py-3 rounded-full font-bold">
@@ -68,30 +80,42 @@ export function DashboardScreen() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-b from-white to-gray-50 overflow-y-auto">
+    <div className={`h-full overflow-y-auto transition-colors ${
+      isDarkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-white to-gray-50'
+    }`}>
       <div className="p-6 pb-24">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-            <p className="text-gray-600">Track your mindful consumption</p>
+            <h1 className={`text-3xl font-bold mb-2 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Dashboard
+            </h1>
+            <p className={`transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Track your mindful consumption
+            </p>
           </div>
           <button
             onClick={handleRefresh}
-            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-50 transition-all"
+            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${
+              isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'
+            }`}
           >
-            <RefreshCw className="w-5 h-5 text-gray-700" />
+            <RefreshCw className={`w-5 h-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
           </button>
         </div>
 
         {/* Attention Score Circle */}
         <motion.div
-          className="bg-white rounded-3xl p-8 shadow-lg mb-6"
+          className={`rounded-3xl p-8 shadow-lg mb-6 transition-colors ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">
+          <h2 className={`text-xl font-bold mb-6 text-center transition-colors ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
             Attention Score
           </h2>
           <div className="relative w-48 h-48 mx-auto">
@@ -138,77 +162,58 @@ export function DashboardScreen() {
               >
                 {Math.round(attentionScore * 100)}
               </motion.span>
-              <span className="text-gray-600 font-semibold mt-1">Score</span>
+              <span className={`font-semibold mt-1 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Score
+              </span>
             </div>
           </div>
-          <p className="text-center text-gray-600 mt-4">
+          <p className={`text-center mt-4 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             You're consuming high-quality content! 🎉
           </p>
         </motion.div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <motion.div
-            className="bg-white rounded-2xl p-5 shadow-lg"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="w-12 h-12 bg-[#6C63FF]/10 rounded-xl flex items-center justify-center mb-3">
-              <Clock className="w-6 h-6 text-[#6C63FF]" />
-            </div>
-            <p className="text-gray-600 text-sm mb-1">Daily Usage</p>
-            <p className="text-2xl font-bold text-gray-900">28m</p>
-          </motion.div>
-
-          <motion.div
-            className="bg-white rounded-2xl p-5 shadow-lg"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="w-12 h-12 bg-[#51CF66]/10 rounded-xl flex items-center justify-center mb-3">
-              <Eye className="w-6 h-6 text-[#51CF66]" />
-            </div>
-            <p className="text-gray-600 text-sm mb-1">Posts Viewed</p>
-            <p className="text-2xl font-bold text-gray-900">24</p>
-          </motion.div>
-
-          <motion.div
-            className="bg-white rounded-2xl p-5 shadow-lg"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div className="w-12 h-12 bg-[#EAB308]/10 rounded-xl flex items-center justify-center mb-3">
-              <Zap className="w-6 h-6 text-[#EAB308]" />
-            </div>
-            <p className="text-gray-600 text-sm mb-1">XP Earned</p>
-            <p className="text-2xl font-bold text-gray-900">480</p>
-          </motion.div>
-
-          <motion.div
-            className="bg-white rounded-2xl p-5 shadow-lg"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <div className="w-12 h-12 bg-[#3A86FF]/10 rounded-xl flex items-center justify-center mb-3">
-              <TrendingUp className="w-6 h-6 text-[#3A86FF]" />
-            </div>
-            <p className="text-gray-600 text-sm mb-1">Sessions</p>
-            <p className="text-2xl font-bold text-gray-900">12</p>
-          </motion.div>
+          {[
+            { icon: Clock, color: '#6C63FF', bg: 'bg-[#6C63FF]/10', label: 'Daily Usage', value: '28m', delay: 0.2 },
+            { icon: Eye, color: '#51CF66', bg: 'bg-[#51CF66]/10', label: 'Posts Viewed', value: '24', delay: 0.3 },
+            { icon: Zap, color: '#EAB308', bg: 'bg-[#EAB308]/10', label: 'XP Earned', value: '480', delay: 0.4 },
+            { icon: TrendingUp, color: '#3A86FF', bg: 'bg-[#3A86FF]/10', label: 'Sessions', value: '12', delay: 0.5 },
+          ].map((stat, index) => (
+            <motion.div
+              key={index}
+              className={`rounded-2xl p-5 shadow-lg transition-colors ${
+                isDarkMode ? 'bg-gray-800' : 'bg-white'
+              }`}
+              initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: stat.delay }}
+            >
+              <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
+                <stat.icon className="w-6 h-6" style={{ color: stat.color }} />
+              </div>
+              <p className={`text-sm mb-1 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {stat.label}
+              </p>
+              <p className={`text-2xl font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {stat.value}
+              </p>
+            </motion.div>
+          ))}
         </div>
 
         {/* Weekly Usage Chart */}
         <motion.div
-          className="bg-white rounded-3xl p-6 shadow-lg mb-6"
+          className={`rounded-3xl p-6 shadow-lg mb-6 transition-colors ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Weekly Usage</h2>
+          <h2 className={`text-xl font-bold mb-4 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Weekly Usage
+          </h2>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={usageData}>
@@ -224,7 +229,9 @@ export function DashboardScreen() {
           </div>
           <div className="flex justify-between mt-2">
             {usageData.map((item) => (
-              <span key={item.day} className="text-xs text-gray-600 font-semibold">
+              <span key={item.day} className={`text-xs font-semibold transition-colors ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
                 {item.day}
               </span>
             ))}
@@ -233,20 +240,30 @@ export function DashboardScreen() {
 
         {/* Content Quality Breakdown */}
         <motion.div
-          className="bg-white rounded-3xl p-6 shadow-lg"
+          className={`rounded-3xl p-6 shadow-lg transition-colors ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Content Quality</h2>
+          <h2 className={`text-xl font-bold mb-6 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Content Quality
+          </h2>
           <div className="space-y-4">
             {qualityBreakdown.map((item, index) => (
               <div key={index}>
                 <div className="flex justify-between mb-2">
-                  <span className="text-gray-900 font-semibold">{item.label}</span>
-                  <span className="text-gray-600 font-bold">{item.value}%</span>
+                  <span className={`font-semibold transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {item.label}
+                  </span>
+                  <span className={`font-bold transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {item.value}%
+                  </span>
                 </div>
-                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div className={`h-3 rounded-full overflow-hidden transition-colors ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                }`}>
                   <motion.div
                     className="h-full rounded-full"
                     style={{ backgroundColor: item.color }}
