@@ -21,6 +21,7 @@ export function CosmicAuth() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isGitHubLoading, setIsGitHubLoading] = useState(false);
   const [stars, setStars] = useState<{ id: number; x: number; y: number; size: number; delay: number }[]>([]);
   const [planets, setPlanets] = useState<{ id: number; x: number; y: number; size: number; color: string }[]>([]);
   const navigate = useNavigate();
@@ -103,6 +104,10 @@ export function CosmicAuth() {
     } finally {
       setIsGoogleLoading(false);
     }
+  };
+
+  const handleGitHubLogin = () => {
+    setErrorMessage('GitHub authentication is coming soon!');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -682,7 +687,7 @@ export function CosmicAuth() {
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={isLoading || isGoogleLoading}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/95 px-3 py-3 min-h-[54px] text-slate-700 font-semibold shadow-lg shadow-black/10 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/95 px-3 py-3 min-h-[54px] text-slate-700 font-semibold shadow-lg shadow-black/10 transition-all hover:bg-white hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.24 1.26-.96 2.32-2.04 3.03l3.3 2.56c1.92-1.77 3.03-4.38 3.03-7.49 0-.71-.06-1.4-.18-2.07H12z" />
@@ -690,17 +695,18 @@ export function CosmicAuth() {
                     <path fill="#FBBC05" d="M6.48 13.94A5.98 5.98 0 016.17 12c0-.67.11-1.32.31-1.94V7.42H3.06A9.99 9.99 0 002 12c0 1.61.39 3.13 1.06 4.58l3.42-2.64z" />
                     <path fill="#34A853" d="M12 6.01c1.47 0 2.78.51 3.81 1.5l2.85-2.85C16.96 3.08 14.7 2 12 2A9.99 9.99 0 003.06 7.42l3.42 2.64c.78-2.32 2.96-4.05 5.52-4.05z" />
                   </svg>
-                  <span>{isGoogleLoading ? 'Connecting...' : isLogin ? 'Google Login' : 'Google Sign Up'}</span>
+                  <span>{isGoogleLoading ? 'Connecting...' : 'Google'}</span>
                 </button>
                 <button
                   type="button"
-                  disabled
-                  className="flex items-center justify-center gap-2 bg-white/5 border border-white/10 rounded-2xl py-3 text-white/40 font-semibold cursor-not-allowed transition-all"
+                  onClick={handleGitHubLogin}
+                  disabled={isLoading || isGitHubLoading}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-3 min-h-[54px] text-white font-semibold shadow-lg shadow-black/10 transition-all hover:bg-white/20 hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
                   </svg>
-                  GitHub Soon
+                  <span>{isGitHubLoading ? 'Connecting...' : 'GitHub'}</span>
                 </button>
               </div>
             </div>

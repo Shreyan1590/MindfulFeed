@@ -692,7 +692,7 @@ async function fetchGoogleProfile(idToken, env) {
         throw new Error('Google client ID mismatch.');
     }
 
-    if (profile.email_verified !== 'true') {
+    if (profile.email_verified !== true && profile.email_verified !== 'true') {
         throw new Error('Google email is not verified.');
     }
 
