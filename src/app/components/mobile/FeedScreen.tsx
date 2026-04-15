@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, Share2, Bookmark, Brain, Timer, TrendingUp, RefreshCw, Sparkles, ArrowRight } from 'lucide-react';
+import { Heart, Share2, Bookmark, Brain, Timer, TrendingUp, RefreshCw, Sparkles, ArrowRight, AlertTriangle, X } from 'lucide-react';
+import { formatErrorCode } from '../../utils/errorCodes';
 import { useNavigate } from 'react-router';
 import { postsService, PostFeed } from '../../services/PostsService';
 
@@ -52,6 +53,7 @@ export function FeedScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEndOfFeed, setIsEndOfFeed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
   // Fetch posts from backend on mount
@@ -66,8 +68,9 @@ export function FeedScreen() {
       if (apiPosts.length > 0) {
         setPosts(apiPosts.map(mapApiPostToFeed));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load posts:', error);
+      setErrorMessage(formatErrorCode(error));
     } finally {
       setIsLoading(false);
     }
@@ -155,6 +158,32 @@ export function FeedScreen() {
 
   return (
     <div className="relative h-full bg-black overflow-hidden">
+      {/* Error Toast */}
+      <AnimatePresence>
+        {errorMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="absolute top-20 left-4 right-4 z-[100] bg-red-500/90 backdrop-blur-md text-white p-4 rounded-2xl flex items-center justify-between shadow-2xl border border-red-400/50"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-100" />
+              <div>
+                <p className="text-sm font-bold">System Error</p>
+                <p className="text-xs text-red-100 font-mono uppercase">{errorMessage}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setErrorMessage('')}
+              className="p-1 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Post Content */}
       <AnimatePresence mode="wait" custom={direction}>
         {posts.length > 0 && (

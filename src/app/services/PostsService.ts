@@ -2,7 +2,7 @@
  * Posts Service — Fetches posts from the Cloudflare Worker API
  */
 
-const API_BASE_URL = 'https://mindfulfeed-worker.info-skillxpress.workers.dev';
+import { apiUrl } from './api';
 
 export interface PostFeed {
   id: string;
@@ -31,7 +31,7 @@ class PostsService {
   async fetchPosts(): Promise<PostFeed[]> {
     try {
       console.log('[PostsService] Fetching posts from API...');
-      const response = await fetch(`${API_BASE_URL}/api/posts`);
+      const response = await fetch(apiUrl('/api/posts'));
       if (!response.ok) {
         throw new Error(`Failed to fetch posts: ${response.status}`);
       }
@@ -47,7 +47,7 @@ class PostsService {
   async fetchPost(postId: string): Promise<PostDetail | null> {
     try {
       console.log(`[PostsService] Fetching post ${postId}...`);
-      const response = await fetch(`${API_BASE_URL}/api/posts/${postId}`);
+      const response = await fetch(apiUrl(`/api/posts/${postId}`));
       if (!response.ok) {
         throw new Error(`Failed to fetch post: ${response.status}`);
       }

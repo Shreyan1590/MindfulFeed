@@ -5,7 +5,7 @@
  * The worker fetches article content from D1 and runs the RAG pipeline.
  */
 
-const API_BASE_URL = 'https://mindfulfeed-worker.info-skillxpress.workers.dev';
+import { apiUrl } from './api';
 
 export interface RAGResponse {
   answer: string;
@@ -20,7 +20,7 @@ class RAGService {
     console.log('[RAGService] Sending request:', { postId, question, historyLength: history.length });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/rag/chat`, {
+      const response = await fetch(apiUrl('/api/rag/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

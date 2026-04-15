@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Edit, Award, Flame, TrendingUp, Calendar, BookOpen } from 'lucide-react';
+import { apiUrl, getStoredSession } from '../../services/api';
 
 export function ProfileScreen() {
   const [user, setUser] = useState<any>(null);
@@ -9,12 +10,43 @@ export function ProfileScreen() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const storedUserId = localStorage.getItem('mindfulfeed_userId') || 'user_dhilip_k';
-        const res = await fetch(`https://mindfulfeed-worker.info-skillxpress.workers.dev/api/user/${storedUserId}`);
+        const { userId, userName, isDemo } = getStoredSession();
+
+        if (!userId) {
+          setUser({
+            name: userName || 'Explorer',
+            level: 1,
+            xp: 0,
+            attention_score: 0,
+          });
+          return;
+        }
+
+        if (isDemo) {
+          setUser({
+            name: userName || 'Cosmic Explorer',
+            level: 5,
+            xp: 420,
+            attention_score: 0.92,
+          });
+          return;
+        }
+
+        const res = await fetch(apiUrl(`/api/user/${userId}`));
+        if (!res.ok) {
+          throw new Error(`Failed to fetch profile: ${res.status}`);
+        }
+
         const data = await res.json();
         setUser(data);
       } catch (err) {
         console.error('Failed to fetch user:', err);
+        setUser({
+          name: 'Explorer',
+          level: 1,
+          xp: 0,
+          attention_score: 0,
+        });
       } finally {
         setLoading(false);
       }

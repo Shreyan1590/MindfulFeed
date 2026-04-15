@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatErrorCode } from '../../utils/errorCodes';
 import {
   ArrowLeft,
   Heart,
@@ -16,12 +17,14 @@ import {
   X,
   Play,
   RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { EnhancedAICharacter } from './EnhancedAICharacter';
 import { aiTranslationService, ArticleAnalysis } from '../../services/AITranslationService';
 import { ttsService } from '../../services/TextToSpeechService';
 import { AudioControlsPanel } from './AudioControlsPanel';
 import { postsService, PostDetail } from '../../services/PostsService';
+import { apiUrl, getStoredSession } from '../../services/api';
 
 export function PostDetailScreen() {
   const { postId } = useParams();
@@ -37,18 +40,27 @@ export function PostDetailScreen() {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Fetch post from backend
   useEffect(() => {
     if (!postId) return;
     const loadPost = async () => {
       setIsLoadingPost(true);
-      const fetchedPost = await postsService.fetchPost(postId);
-      if (fetchedPost) {
-        setPost(fetchedPost);
-        performAnalysis(fetchedPost);
+      try {
+        const fetchedPost = await postsService.fetchPost(postId);
+        if (fetchedPost) {
+          setPost(fetchedPost);
+          performAnalysis(fetchedPost);
+        } else {
+          setErrorMessage(formatErrorCode(new Error('Post not found')));
+        }
+      } catch (error: any) {
+        console.error('Failed to load post:', error);
+        setErrorMessage(formatErrorCode(error));
+      } finally {
+        setIsLoadingPost(false);
       }
-      setIsLoadingPost(false);
     };
     loadPost();
   }, [postId, selectedLanguage]);
@@ -116,13 +128,14 @@ export function PostDetailScreen() {
       scrollElement?.removeEventListener('scroll', handleScroll);
       const endTime = Date.now();
       const timeSpent = Math.floor((endTime - startTime) / 1000);
+      const { userId, isDemo } = getStoredSession();
 
-      if (postId && timeSpent > 2) {
-        fetch('https://mindfulfeed-worker.info-skillxpress.workers.dev/api/interactions', {
+      if (postId && userId && !isDemo && timeSpent > 2) {
+        fetch(apiUrl('/api/interactions'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId: 'user_dhilip_k',
+            userId,
             postId,
             timeSpent,
             scrollDepth: maxScroll
@@ -149,6 +162,32 @@ export function PostDetailScreen() {
 
   return (
     <div className="relative h-full bg-white">
+      {/* Error Toast */}
+      <AnimatePresence>
+        {errorMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-20 left-4 right-4 z-[100] bg-red-600/90 backdrop-blur-md text-white p-4 rounded-2xl flex items-center justify-between shadow-2xl border border-red-500/50"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-100" />
+              <div>
+                <p className="text-sm font-bold">Post Error</p>
+                <p className="text-xs text-red-100 font-mono uppercase">{errorMessage}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setErrorMessage('')}
+              className="p-1 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Read Progress Bar */}
       <motion.div
         className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6C63FF] to-[#3A86FF] z-50 origin-left"

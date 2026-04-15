@@ -3,57 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { Brain, Mail, Lock, Eye, EyeOff, Sparkles, Rocket, Zap, Star, User, AlertTriangle, CheckCircle, X } from 'lucide-react';
 
-/**
- * Maps raw technical error messages to user-friendly messages.
- * This ensures users never see D1_ERROR, SQLITE_ERROR, etc.
- */
-function getFriendlyErrorMessage(rawMessage: string, isLogin: boolean): string {
-  const msg = (rawMessage || '').toLowerCase();
-
-  // Database / column / schema errors
-  if (msg.includes('d1_error') || msg.includes('sqlite_error') || msg.includes('no such column') || msg.includes('no column named')) {
-    return isLogin
-      ? 'Invalid email or password. Please try again.'
-      : 'Unable to create account. Please try again later.';
-  }
-
-  // Network errors
-  if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('network')) {
-    return 'Unable to connect. Please check your internet connection and try again.';
-  }
-
-  // Duplicate user
-  if (msg.includes('already exists') || msg.includes('unique constraint')) {
-    return 'An account with this email already exists. Please log in instead.';
-  }
-
-  // Invalid credentials (already user-friendly from backend)
-  if (msg.includes('invalid email') || msg.includes('invalid password')) {
-    return 'Invalid email or password. Please try again.';
-  }
-
-  // Authentication failed
-  if (msg.includes('authentication failed')) {
-    return isLogin
-      ? 'Invalid email or password. Please try again.'
-      : 'Unable to create account. Please try again.';
-  }
-
-  // Timeout
-  if (msg.includes('timeout') || msg.includes('timed out')) {
-    return 'The server took too long to respond. Please try again.';
-  }
-
-  // If the message is already user-friendly (no technical jargon), return it
-  if (!msg.includes('error') && !msg.includes('sql') && !msg.includes('d1') && !msg.includes('exception') && rawMessage.length < 100) {
-    return rawMessage;
-  }
-
-  // Default fallback
-  return isLogin
-    ? 'Unable to log in. Please check your credentials and try again.'
-    : 'Unable to create account. Please try again later.';
-}
+import { apiUrl } from '../../services/api';
+import {
+  getGoogleAuthErrorMessage,
+  initializeGoogleAuth,
+  signInWithGoogle,
+} from '../../services/GoogleAuthService';
 
 export function CosmicAuth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -65,6 +20,7 @@ export function CosmicAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [stars, setStars] = useState<{ id: number; x: number; y: number; size: number; delay: number }[]>([]);
   const [planets, setPlanets] = useState<{ id: number; x: number; y: number; size: number; color: string }[]>([]);
   const navigate = useNavigate();
@@ -123,6 +79,32 @@ export function CosmicAuth() {
     setConfirmPassword(''); // Clear confirm password on toggle
   }, [isLogin]);
 
+  useEffect(() => {
+    initializeGoogleAuth().catch((error) => {
+      console.error('Failed to initialize Google auth', error);
+    });
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const data = await signInWithGoogle();
+
+      localStorage.setItem('mindfulfeed_userId', data.user.id);
+      localStorage.setItem('mindfulfeed_token', data.token);
+      localStorage.setItem('mindfulfeed_userName', data.user.name);
+      localStorage.removeItem('mindfulfeed_isDemo');
+      navigate('/mobile/feed');
+    } catch (error) {
+      setErrorMessage(getGoogleAuthErrorMessage(error));
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -136,6 +118,12 @@ export function CosmicAuth() {
       return;
     }
 
+    if (!isLogin && password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      setIsLoading(false);
+      return;
+    }
+
     const sanitizedEmail = email.trim().toLowerCase();
 
     try {
@@ -144,32 +132,52 @@ export function CosmicAuth() {
         ? { email: sanitizedEmail, password } 
         : { name: fullName.trim(), email: sanitizedEmail, password };
 
-      const res = await fetch(`https://mindfulfeed-worker.info-skillxpress.workers.dev${endpoint}`, {
+      const res = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Server returned an invalid response. Please try again.');
       }
 
-      if (isLogin) {
+      if (!res.ok) {
+        // Provide clear, actionable messages based on HTTP status
+        if (res.status === 401) {
+          // Server now returns specific messages: "No account found..." or "Incorrect password..."
+          throw new Error(data.error || 'Invalid email or password. Please check your credentials or sign up for a new account.');
+        } else if (res.status === 400) {
+          throw new Error(data.error || 'Invalid input. Please check your details and try again.');
+        } else if (res.status === 500) {
+          throw new Error('Server error. Please try again in a moment.');
+        } else {
+          throw new Error(data.error || 'Something went wrong. Please try again.');
+        }
+      }
+
+      if (data.user && data.token) {
         // Store persistent session
         localStorage.setItem('mindfulfeed_userId', data.user.id);
         localStorage.setItem('mindfulfeed_token', data.token);
         localStorage.setItem('mindfulfeed_userName', data.user.name);
+        localStorage.removeItem('mindfulfeed_isDemo');
         navigate('/mobile/feed');
       } else {
-        // After registration, switch to login
+        // After registration, switch to login and pre-fill email
         setIsLogin(true);
-        setSuccessMessage('Account created successfully! Please log in.');
+        setPassword('');
+        setSuccessMessage('Account created successfully! Please log in with your credentials.');
       }
     } catch (err: any) {
-      const rawMessage = err.message || 'Something went wrong';
-      setErrorMessage(getFriendlyErrorMessage(rawMessage, isLogin));
+      if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        setErrorMessage('Network error. Please check your internet connection and try again.');
+      } else {
+        setErrorMessage(err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -181,7 +189,7 @@ export function CosmicAuth() {
     setSuccessMessage('');
 
     try {
-      const res = await fetch('https://mindfulfeed-worker.info-skillxpress.workers.dev/api/login-demo', {
+      const res = await fetch(apiUrl('/api/login-demo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -670,20 +678,29 @@ export function CosmicAuth() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <button className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-2xl py-3 text-white font-semibold transition-all">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading || isGoogleLoading}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/95 px-3 py-3 min-h-[54px] text-slate-700 font-semibold shadow-lg shadow-black/10 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.24 1.26-.96 2.32-2.04 3.03l3.3 2.56c1.92-1.77 3.03-4.38 3.03-7.49 0-.71-.06-1.4-.18-2.07H12z" />
+                    <path fill="#4285F4" d="M12 22c2.7 0 4.97-.9 6.63-2.44l-3.3-2.56c-.92.62-2.09.99-3.33.99-2.56 0-4.74-1.73-5.52-4.05H3.06v2.64A9.99 9.99 0 0012 22z" />
+                    <path fill="#FBBC05" d="M6.48 13.94A5.98 5.98 0 016.17 12c0-.67.11-1.32.31-1.94V7.42H3.06A9.99 9.99 0 002 12c0 1.61.39 3.13 1.06 4.58l3.42-2.64z" />
+                    <path fill="#34A853" d="M12 6.01c1.47 0 2.78.51 3.81 1.5l2.85-2.85C16.96 3.08 14.7 2 12 2A9.99 9.99 0 003.06 7.42l3.42 2.64c.78-2.32 2.96-4.05 5.52-4.05z" />
                   </svg>
-                  Google
+                  <span>{isGoogleLoading ? 'Connecting...' : isLogin ? 'Google Login' : 'Google Sign Up'}</span>
                 </button>
-                <button className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-2xl py-3 text-white font-semibold transition-all">
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center justify-center gap-2 bg-white/5 border border-white/10 rounded-2xl py-3 text-white/40 font-semibold cursor-not-allowed transition-all"
+                >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
                   </svg>
-                  GitHub
+                  GitHub Soon
                 </button>
               </div>
             </div>

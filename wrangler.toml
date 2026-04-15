@@ -29,6 +29,11 @@ binding = "AI"
 [vars]
 ENVIRONMENT = "production"
 
+# Secrets (use `npx wrangler secret put <NAME>` to set these)
+# GOOGLE_WEB_CLIENT_ID - Google OAuth Client ID
+# JWT_SECRET - Secret for signing JWT tokens (generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+
+
 # Routes (configure after deploying)
 # routes = [
 #   { pattern = "api.mindfulfeed.app/*", zone_name = "mindfulfeed.app" }

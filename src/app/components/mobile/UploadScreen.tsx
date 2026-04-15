@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Upload, Image as ImageIcon, Check, X, Sparkles, AlertCircle } from 'lucide-react';
+import { formatErrorCode } from '../../utils/errorCodes';
+import { apiUrl, getStoredSession } from '../../services/api';
 
 const categories = [
   'Wellness',
@@ -40,26 +42,27 @@ export function UploadScreen() {
     setIsAnalyzing(true);
     setError(null);
     try {
-      const response = await fetch('https://mindfulfeed-worker.info-skillxpress.workers.dev/api/posts', {
+      const response = await fetch(apiUrl('/api/posts/analyze'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: 'user_dhilip_k', // Hardcoded for demo/profile integration
           title,
           content,
           caption,
           category: selectedCategory,
-          tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-          imageUrl: selectedImage || ''
+          tags: tags.split(',').map(t => t.trim()).filter(Boolean)
         })
       });
 
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Unable to analyze content.' }));
+        throw new Error(data.error || 'Unable to analyze content.');
+      }
+
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'AI Moderation failed');
-      
       setAiAnalysis(result.analysis);
     } catch (e: any) {
-      setError(e.message);
+      setError(formatErrorCode(e));
     } finally {
       setIsAnalyzing(false);
     }
@@ -67,17 +70,59 @@ export function UploadScreen() {
 
   const handleUpload = async () => {
     if (!aiAnalysis || aiAnalysis.quality === 'harmful') return;
-    setUploadSuccess(true);
-    setTimeout(() => {
-      setUploadSuccess(false);
-      setTitle('');
-      setContent('');
-      setCaption('');
-      setSelectedCategory('');
-      setTags('');
-      setSelectedImage(null);
-      setAiAnalysis(null);
-    }, 3000);
+
+    const { userId, isDemo } = getStoredSession();
+    if (!userId || isDemo) {
+      setError('Please log in with a full account before uploading content.');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(25);
+    setError(null);
+
+    try {
+      const response = await fetch(apiUrl('/api/posts'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          title,
+          content,
+          caption,
+          category: selectedCategory,
+          tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+          imageUrl: selectedImage || '',
+        }),
+      });
+
+      setUploadProgress(75);
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Upload failed.' }));
+        throw new Error(data.error || 'Upload failed.');
+      }
+
+      await response.json();
+      setUploadProgress(100);
+      setUploadSuccess(true);
+      setTimeout(() => {
+        setUploadSuccess(false);
+        setTitle('');
+        setContent('');
+        setCaption('');
+        setSelectedCategory('');
+        setTags('');
+        setSelectedImage(null);
+        setAiAnalysis(null);
+        setUploadProgress(0);
+      }, 3000);
+    } catch (e: any) {
+      setError(formatErrorCode(e));
+      setUploadProgress(0);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const getQualityColor = (quality: string) => {

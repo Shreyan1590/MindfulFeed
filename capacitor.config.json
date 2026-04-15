@@ -1,5 +1,13 @@
 {
   "appId": "com.mindfulfeed.app",
   "appName": "MindfulFeed",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "GoogleAuth": {
+      "clientId": "87314678313-3gqqqeo2krfilu6uo5s2m4auraune9ji.apps.googleusercontent.com",
+      "serverClientId": "87314678313-3gqqqeo2krfilu6uo5s2m4auraune9ji.apps.googleusercontent.com",
+      "scopes": ["profile", "email"],
+      "forceCodeForRefreshToken": false
+    }
+  }
 }
